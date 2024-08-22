@@ -115,7 +115,7 @@ class StreamingSttProvider {
         const data = await apiResult.json();
 		//Return the transcript if it exceeds the minimum character number.
 		if (data.transcript.length > this.settings.triggerCharMin) {
-        return data.transcript + this.settings.triggerCharMin + data.transcript.length;
+        return data.transcript;
 		}
     }
 
