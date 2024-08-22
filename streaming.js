@@ -11,6 +11,7 @@ class StreamingSttProvider {
     settings;
 
     defaultSettings = {
+		triggerCharMin: 0,
         triggerWordsText: '',
         triggerWords: [],
         triggerWordsEnabled: false,
@@ -22,6 +23,8 @@ class StreamingSttProvider {
     get settingsHtml() {
         let html = '\
         <div id="speech_recognition_streaming_trigger_words_div">\
+        <span>Minimum spoken characters to trigger</span><br>\
+        <input max="99" min="0" class="text_pole" id="speech_recognition_streaming_trigger_min_chars" type="number"><br>\
         <span>Trigger words</span>\
         <textarea id="speech_recognition_streaming_trigger_words" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated words that triggers new message, example:\nhey, hey aqua, record, listen"></textarea>\
         <label class="checkbox_label" for="speech_recognition_streaming_trigger_words_enabled">\
@@ -42,6 +45,7 @@ class StreamingSttProvider {
     }
 
     onSettingsChange() {
+		this.settings.triggerCharMin = Number.parseInt($('#speech_recognition_streaming_trigger_min_chars').val());
         this.settings.triggerWordsText = $('#speech_recognition_streaming_trigger_words').val();
         let array = $('#speech_recognition_streaming_trigger_words').val().split(',');
         array = array.map(element => { return element.trim().toLowerCase(); });
@@ -71,6 +75,7 @@ class StreamingSttProvider {
             }
         }
 
+		$('#speech_recognition_streaming_trigger_min_chars').val(this.settings.triggerCharMin);
         $('#speech_recognition_streaming_trigger_words').val(this.settings.triggerWordsText);
         $('#speech_recognition_streaming_trigger_words_enabled').prop('checked', this.settings.triggerWordsEnabled);
         $('#speech_recognition_trigger_words_included').prop('checked', this.settings.triggerWordsIncluded);
@@ -108,7 +113,10 @@ class StreamingSttProvider {
         }
 
         const data = await apiResult.json();
+		//Return the transcript if it exceeds the minimum character number.
+		if (data.transcript.length > this.settings.triggerCharMin) {
         return data.transcript;
+		}
     }
 
 }
