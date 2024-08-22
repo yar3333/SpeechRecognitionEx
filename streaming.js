@@ -11,7 +11,7 @@ class StreamingSttProvider {
     settings;
 
     defaultSettings = {
-		triggerCharMin: 0,
+        triggerCharMin: 0,
         triggerWordsText: '',
         triggerWords: [],
         triggerWordsEnabled: false,
@@ -45,7 +45,7 @@ class StreamingSttProvider {
     }
 
     onSettingsChange() {
-		this.settings.triggerCharMin = Number.parseInt($('#speech_recognition_streaming_trigger_min_chars').val());
+        this.settings.triggerCharMin = Number.parseInt($('#speech_recognition_streaming_trigger_min_chars').val());
         this.settings.triggerWordsText = $('#speech_recognition_streaming_trigger_words').val();
         let array = $('#speech_recognition_streaming_trigger_words').val().split(',');
         array = array.map(element => { return element.trim().toLowerCase(); });
@@ -75,7 +75,7 @@ class StreamingSttProvider {
             }
         }
 
-		$('#speech_recognition_streaming_trigger_min_chars').val(this.settings.triggerCharMin);
+        $('#speech_recognition_streaming_trigger_min_chars').val(this.settings.triggerCharMin);
         $('#speech_recognition_streaming_trigger_words').val(this.settings.triggerWordsText);
         $('#speech_recognition_streaming_trigger_words_enabled').prop('checked', this.settings.triggerWordsEnabled);
         $('#speech_recognition_trigger_words_included').prop('checked', this.settings.triggerWordsIncluded);
@@ -113,10 +113,10 @@ class StreamingSttProvider {
         }
 
         const data = await apiResult.json();
-		//Return the transcript if it exceeds the minimum character number.
-		if (data.transcript.length > this.settings.triggerCharMin) {
-        return data.transcript;
-		}
+        //Return the transcript if it exceeds the minimum character number.
+        if (data.transcript.length > this.settings.triggerCharMin) {
+            return data.transcript;
+        }
     }
 
 }
