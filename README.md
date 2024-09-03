@@ -2,7 +2,7 @@
 
 Convert your speech to text using a browser or extras.
 
-Documentation: <https://docs.sillytavern.app/extras/extensions/speech-recognition/>
+Documentation: <https://docs.sillytavern.app/extensions/speech-recognition/>
 
 ## License and credits
 
