@@ -63,7 +63,7 @@ async function moduleWorker() {
 
             let userMessageLower = userMessageFormatted.toLowerCase();
             // remove punctuation
-            let userMessageRaw = userMessageLower.replace(/[^\w\s\']|_/g, '').replace(/\s+/g, ' ');
+            let userMessageRaw = userMessageLower.replace(/[^\p{L}\p{M}\s']/gu, '').replace(/\s+/g, ' ');
 
             console.debug(DEBUG_PREFIX + 'raw transcript:', userMessageRaw);
 
@@ -108,7 +108,7 @@ async function moduleWorker() {
                 // Trim non alphanumeric character from the start
                 messageStart = 0;
                 for (const i of userMessageFormatted) {
-                    if (/^[a-z]$/i.test(i)) {
+                    if (/^[\p{L}\p{M}]$/iu.test(i)) {
                         break;
                     }
                     messageStart += 1;
