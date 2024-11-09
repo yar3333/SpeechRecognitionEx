@@ -1,11 +1,21 @@
-# Extension-Speech-Recognition
+# SpeechRecognitionEx 
 
-Convert your speech to text using a browser or extras.
+Speech recognition plugin for [SillyTavern](https://sillytavernai.com/).
+Based on original official plugin [Extension-Speech-Recognition](https://github.com/SillyTavern/Extension-Speech-Recognition).
 
-Documentation: <https://docs.sillytavern.app/extensions/speech-recognition/>
+Major changes compared to original extension:
+
+  * high-quality voice activity detector
+  * commands support also cyrillic languages
+
+## Installation
+
+![Alt text](how-to-install.png)
+
+`https://github.com/yar3333/SpeechRecognitionEx`
 
 ## License and credits
 
 GPLv3
 
-vad.js by [kdavis-mozilla](https://github.com/kdavis-mozilla) is from <https://github.com/kdavis-mozilla/vad.js> (BSD-3-Clause).
+ricky0123's VAD / https://github.com/ricky0123/vad
