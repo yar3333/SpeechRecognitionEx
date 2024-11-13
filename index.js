@@ -12,7 +12,6 @@ import { WhisperLocalSttProvider } from './whisper-local.js';
 import { BrowserSttProvider } from './browser.js';
 import { StreamingSttProvider } from './streaming.js';
 import { KoboldCppSttProvider } from './koboldcpp.js';
-import { VAD } from './vad.js'
 export { MODULE_NAME };
 export { activateMicIcon, deactivateMicIcon };
 
@@ -202,18 +201,19 @@ async function processTranscript(transcript) {
     }
 }
 
-function loadNavigatorAudioRecording() {
+async function loadNavigatorAudioRecording() {
     if (navigator.mediaDevices.getUserMedia) {
         console.debug(DEBUG_PREFIX + ' getUserMedia supported by browser.');
+
+        await loadScripts();
+
         const micButton = $('#microphone_button');
 
-        let onSuccess = function (stream) {
-            const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-            const audioContext = new AudioContext(!isFirefox ? { sampleRate: 16000 } : null);
-            const source = audioContext.createMediaStreamSource(stream);
-            const settings = {
-                source: source,
-                voice_start: function () {
+        let onSuccess = async function (stream) {
+            const myVAD = await vad.MicVAD.new({
+                redemptionFrames: 15,
+
+                onSpeechStart: () => {
                     if (!audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
                         console.debug(DEBUG_PREFIX + 'Voice started');
                         if (micButton.is(':visible')) {
@@ -221,30 +221,36 @@ function loadNavigatorAudioRecording() {
                         }
                     }
                 },
-                voice_stop: function () {
+                onSpeechEnd: async (audio) => {
                     if (audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
                         console.debug(DEBUG_PREFIX + 'Voice stopped');
                         if (micButton.is(':visible')) {
                             micButton.trigger('click');
+                            await processPcmArrays(16000, [ audio ]);
                         }
                     }
-                },
-            };
+                }
+            });
+            myVAD.start()
 
-            new VAD(settings);
-
-            mediaRecorder = new MediaRecorder(stream);
+            let mediaRecorder = new MediaRecorder(stream);
 
             micButton.off('click').on('click', function () {
                 if (!audioRecording) {
-                    mediaRecorder.start();
+                    if (!extension_settings.speech_recognition.voiceActivationEnabled)
+                    {
+                        mediaRecorder.start();
+                    }
                     console.debug(DEBUG_PREFIX + mediaRecorder.state);
                     console.debug(DEBUG_PREFIX + 'recorder started');
                     audioRecording = true;
                     activateMicIcon(micButton);
                 }
                 else {
-                    mediaRecorder.stop();
+                    if (!extension_settings.speech_recognition.voiceActivationEnabled)
+                    {
+                        mediaRecorder.stop();
+                    }
                     console.debug(DEBUG_PREFIX + mediaRecorder.state);
                     console.debug(DEBUG_PREFIX + 'recorder stopped');
                     audioRecording = false;
@@ -262,17 +268,24 @@ function loadNavigatorAudioRecording() {
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                 audioChunks = [];
 
-                const wavBlob = await convertAudioBufferToWavBlob(audioBuffer);
-                const transcript = await sttProvider.processAudio(wavBlob);
-
-                // TODO: lock and release recording while processing?
-                console.debug(DEBUG_PREFIX + 'received transcript:', transcript);
-                processTranscript(transcript);
+                const pcmArrays = [];
+                for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+                    pcmArrays.push(audioBuffer.getChannelData(i));
+                }
+                await processPcmArrays(audioBuffer.sampleRate, pcmArrays);
             };
 
             mediaRecorder.ondataavailable = function (e) {
                 audioChunks.push(e.data);
             };
+
+            async function processPcmArrays(sampleRate, pcmArrays) {
+                const wavBlob = await convertAudioBufferToWavBlob(sampleRate, pcmArrays);
+                const transcript = await sttProvider.processAudio(wavBlob);
+                // TODO: lock and release recording while processing?
+                console.debug(DEBUG_PREFIX + 'received transcript:', transcript);
+                processTranscript(transcript);
+            }
         };
 
         let onError = function (err) {
@@ -291,7 +304,7 @@ function loadNavigatorAudioRecording() {
 // STT Provider //
 //##############//
 
-function loadSttProvider(provider) {
+async function loadSttProvider(provider) {
     //Clear the current config and add new config
     $('#speech_recognition_provider_settings').html('');
 
@@ -338,7 +351,7 @@ function loadSttProvider(provider) {
     const nonStreamingProviders = ['Vosk', 'Whisper (OpenAI)', 'Whisper (Extras)', 'Whisper (Local)', 'KoboldCpp'];
     if (nonStreamingProviders.includes(sttProviderName)) {
         sttProvider.loadSettings(extension_settings.speech_recognition[sttProviderName]);
-        loadNavigatorAudioRecording();
+        await loadNavigatorAudioRecording();
         $('#microphone_button').show();
     }
 
@@ -394,9 +407,9 @@ function onSttLanguageChange() {
     saveSettingsDebounced();
 }
 
-function onSttProviderChange() {
+async function onSttProviderChange() {
     const sttProviderSelection = $('#speech_recognition_provider').val();
-    loadSttProvider(sttProviderSelection);
+    await loadSttProvider(sttProviderSelection);
     saveSettingsDebounced();
 }
 
@@ -492,23 +505,18 @@ function onVoiceActivationEnabledChange() {
     saveSettingsDebounced();
 }
 
-async function convertAudioBufferToWavBlob(audioBuffer) {
-    return new Promise(function (resolve) {
+function convertAudioBufferToWavBlob(sampleRate, pcmArrays) {
+    return new Promise((resolve) => {
         var worker = new Worker('/scripts/extensions/third-party/Extension-Speech-Recognition/wave-worker.js');
 
-        worker.onmessage = function (e) {
+        worker.onmessage = (e) => {
             var blob = new Blob([e.data.buffer], { type: 'audio/wav' });
             resolve(blob);
         };
 
-        let pcmArrays = [];
-        for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-            pcmArrays.push(audioBuffer.getChannelData(i));
-        }
-
         worker.postMessage({
             pcmArrays,
-            config: { sampleRate: audioBuffer.sampleRate },
+            config: { sampleRate: sampleRate },
         });
     });
 }
@@ -675,6 +683,29 @@ function processPushToTalkEnd(event) {
             $('#microphone_button').trigger('click');
         }
     }
+}
+
+async function loadScripts()
+{
+    function loadScript(url) {
+        return new Promise(resolve => {
+            if (!document.querySelector("script[src='" + url + "']")) {
+                const elem = document.createElement("script");
+                elem.addEventListener("load", () => resolve());
+                elem.src = url;
+                document.head.appendChild(elem);
+            }
+        });
+    }
+
+    //await loadScript("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js");
+    //await loadScript("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js");
+    await loadScript("/scripts/extensions/third-party/Extension-Speech-Recognition/onnxruntime-web/ort.js");
+    await loadScript("/scripts/extensions/third-party/Extension-Speech-Recognition/ricky0123-vad-web/bundle.min.js");
+
+    return new Promise((resolve) => {
+        setTimeout(() => resolve(), 1);
+    });
 }
 
 $(document).ready(function () {
