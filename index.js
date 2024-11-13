@@ -208,7 +208,8 @@ function loadNavigatorAudioRecording() {
         const micButton = $('#microphone_button');
 
         let onSuccess = function (stream) {
-            const audioContext = new AudioContext({ sampleRate: 16000 });
+            const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+            const audioContext = new AudioContext(!isFirefox ? { sampleRate: 16000 } : null);
             const source = audioContext.createMediaStreamSource(stream);
             const settings = {
                 source: source,
