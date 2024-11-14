@@ -142,7 +142,7 @@ async function processTranscript(transcript) {
 
             let transcriptLower = transcriptFormatted.toLowerCase();
             // remove punctuation
-            let transcriptRaw = transcriptLower.replace(/[^\w\s\']|_/g, '').replace(/\s+/g, ' ');
+            let transcriptRaw = transcriptLower.replace(/[^\w\s\'а-я]|_/g, '').replace(/\s+/g, ' ');
 
             // Check message mapping
             if (extension_settings.speech_recognition.messageMappingEnabled) {
