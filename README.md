@@ -13,7 +13,7 @@ Major changes compared to original extension:
 
 ![Alt text](how-to-install.png)
 
-https://github.com/yar3333/SpeechRecognitionEx
+`https://github.com/yar3333/SpeechRecognitionEx`
 
 ## License and credits
 
