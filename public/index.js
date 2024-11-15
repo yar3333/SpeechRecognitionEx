@@ -9,11 +9,11 @@ import { VoskSttProvider } from './vosk.js';
 import { WhisperExtrasSttProvider } from './whisper-extras.js';
 import { WhisperOpenAISttProvider } from './whisper-openai.js';
 import { WhisperLocalSttProvider } from './whisper-local.js';
-import { BrowserSttProvider } from './browser.js';
+import { BrowserSttProvider, activateMicIcon, deactivateMicIcon } from './browser.js';
 import { StreamingSttProvider } from './streaming.js';
 import { KoboldCppSttProvider } from './koboldcpp.js';
 export { MODULE_NAME };
-export { activateMicIcon, deactivateMicIcon };
+
 
 const MODULE_NAME = 'Speech Recognition';
 const DEBUG_PREFIX = '<Speech Recognition module> ';
@@ -226,7 +226,7 @@ async function loadNavigatorAudioRecording() {
                         console.debug(DEBUG_PREFIX + 'Voice stopped');
                         if (micButton.is(':visible')) {
                             micButton.trigger('click');
-                            await processPcmArrays(16000, [ audio ]);
+                            await processPcmArrays(16000, [audio]);
                         }
                     }
                 }
@@ -237,8 +237,7 @@ async function loadNavigatorAudioRecording() {
 
             micButton.off('click').on('click', function () {
                 if (!audioRecording) {
-                    if (!extension_settings.speech_recognition.voiceActivationEnabled)
-                    {
+                    if (!extension_settings.speech_recognition.voiceActivationEnabled) {
                         mediaRecorder.start();
                     }
                     console.debug(DEBUG_PREFIX + mediaRecorder.state);
@@ -247,8 +246,7 @@ async function loadNavigatorAudioRecording() {
                     activateMicIcon(micButton);
                 }
                 else {
-                    if (!extension_settings.speech_recognition.voiceActivationEnabled)
-                    {
+                    if (!extension_settings.speech_recognition.voiceActivationEnabled) {
                         mediaRecorder.stop();
                     }
                     console.debug(DEBUG_PREFIX + mediaRecorder.state);
@@ -363,24 +361,6 @@ async function loadSttProvider(provider) {
 
     $('#speech_recognition_ptt_div').toggle(sttProviderName != 'Streaming');
     $('#speech_recognition_voice_activation_enabled_div').toggle(sttProviderName != 'Streaming');
-}
-
-/**
- * Set the microphone icon as active. Must be called when recording starts.
- * @param {JQuery} micButton - The jQuery object of the microphone button.
- */
-function activateMicIcon(micButton) {
-    micButton.toggleClass('fa-microphone fa-microphone-slash');
-    micButton.prop('title', 'Click to end and transcribe');
-}
-
-/**
- * Set the microphone icon as inactive. Must be called when recording ends.
- * @param {JQuery} micButton - The jQuery object of the microphone button.
- */
-function deactivateMicIcon(micButton) {
-    micButton.toggleClass('fa-microphone fa-microphone-slash');
-    micButton.prop('title', 'Click to speak');
 }
 
 function stopCurrentProvider() {
@@ -685,8 +665,7 @@ function processPushToTalkEnd(event) {
     }
 }
 
-async function loadScripts()
-{
+async function loadScripts() {
     function loadScript(url) {
         return new Promise(resolve => {
             if (!document.querySelector("script[src='" + url + "']")) {

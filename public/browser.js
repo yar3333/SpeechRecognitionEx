@@ -3,10 +3,28 @@
 // First version by Cohee#1207
 // Adapted by Tony-sama
 
-import { activateMicIcon, deactivateMicIcon } from './index.js';
 export { BrowserSttProvider };
+export { activateMicIcon, deactivateMicIcon };
 
 const DEBUG_PREFIX = '<Speech Recognition module (Browser)> ';
+
+/**
+ * Set the microphone icon as active. Must be called when recording starts.
+ * @param {JQuery} micButton - The jQuery object of the microphone button.
+ */
+function activateMicIcon(micButton) {
+    micButton.toggleClass('fa-microphone fa-microphone-slash');
+    micButton.prop('title', 'Click to end and transcribe');
+}
+
+/**
+ * Set the microphone icon as inactive. Must be called when recording ends.
+ * @param {JQuery} micButton - The jQuery object of the microphone button.
+ */
+function deactivateMicIcon(micButton) {
+    micButton.toggleClass('fa-microphone fa-microphone-slash');
+    micButton.prop('title', 'Click to speak');
+}
 
 class BrowserSttProvider {
     //########//
@@ -236,6 +254,4 @@ class BrowserSttProvider {
 
         console.debug(DEBUG_PREFIX + 'Browser STT settings loaded');
     }
-
-
 }
