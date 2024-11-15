@@ -1,15 +1,12 @@
 {
-    "display_name": "SpeechRecognitionEx",
+    "display_name": "Speech Recognition Ex",
     "loading_order": 13,
     "requires": [],
-    "optional": [
-        "vosk-speech-recognition",
-        "whisper-speech-recognition"
-    ],
-    "js": "index.js",
-    "css": "style.css",
+    "optional": [],
+    "js": "dist/speech-recognition-ex.js",
+    "css": "dist/style.css",
     "author": "yar3333, Cohee#1207 and Tony-sama",
     "version": "2.0.0",
     "homePage": "https://github.com/yar3333/SpeechRecognitionEx",
-    "auto_update": true
+    "auto_update": false
 }
