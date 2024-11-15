@@ -9,6 +9,12 @@ Major changes compare to original extension:
   * high-quality voice activity detector
   * commands support also cyrillic languages
 
+## Installation
+
+![Alt text](how-to-install.png)
+
+https://github.com/yar3333/SpeechRecognitionEx
+
 ## License and credits
 
 GPLv3
