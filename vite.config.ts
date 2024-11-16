@@ -20,7 +20,11 @@ export default defineConfig({
         rollupOptions: {
             // External packages that should not be bundled into your library.
             // external: ['react', 'react-dom', 'react/jsx-runtime']
-            external: ['./index.js']
+            external: [
+                './index.js',
+                '../../../../script.js',
+                '../../../extensions.js',
+            ]
             //external: Object.keys((pkg as any).dependencies || {})
         }
     },
