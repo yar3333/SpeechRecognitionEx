@@ -23,7 +23,7 @@ const MODULE_NAME = 'Speech Recognition Ex';
 const DEBUG_PREFIX = '<Speech Recognition Ex module> ';
 const UPDATE_INTERVAL = 100;
 
-const URL_TO_DIST = '/scripts/extensions/third-party/SpeechRecognitionEx/dist';
+const URL_TO_EXTENSION = '/scripts/extensions/third-party/SpeechRecognitionEx';
 
 let inApiCall = false;
 
@@ -492,7 +492,7 @@ function onVoiceActivationEnabledChange() {
 
 function convertAudioBufferToWavBlob(sampleRate, pcmArrays) {
     return new Promise((resolve) => {
-        var worker = new Worker(URL_TO_DIST + '/wave-worker.js');
+        var worker = new Worker(URL_TO_EXTENSION + '/dist/wave-worker.js');
 
         worker.onmessage = (e) => {
             var blob = new Blob([e.data.buffer], { type: 'audio/wav' });
@@ -684,8 +684,8 @@ async function loadScripts() {
 
     //await loadScript("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js");
     //await loadScript("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js");
-    await loadScript(URL_TO_DIST + "/onnxruntime-web/ort.js");
-    await loadScript(URL_TO_DIST + "/ricky0123-vad-web/bundle.min.js");
+    await loadScript(URL_TO_EXTENSION + "/vad/onnxruntime-web/ort.js");
+    await loadScript(URL_TO_EXTENSION + "/vad/ricky0123-vad-web/bundle.min.js");
 
     return new Promise((resolve) => {
         setTimeout(() => resolve(null), 1);
