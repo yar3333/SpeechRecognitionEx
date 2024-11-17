@@ -7,10 +7,10 @@ import { UiHelper } from "@/helpers/UiHelper";
 
 declare global {
     interface Window {
-        readonly SpeechRecognition;
-        readonly webkitSpeechRecognition;
-        readonly SpeechGrammarList
-        readonly webkitSpeechGrammarList;
+        readonly SpeechRecognition: any;
+        readonly webkitSpeechRecognition: any;
+        readonly SpeechGrammarList: any;
+        readonly webkitSpeechGrammarList: any;
     }
 }
 

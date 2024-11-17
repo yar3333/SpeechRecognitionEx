@@ -1,6 +1,6 @@
 import { DEBUG_PREFIX } from "./constants";
-import { extension_settings } from "./externals/sillytavern-extensions";
 import { TranscriptionHelper } from "./helpers/TranscriptionHelper";
+import type { StreamingSttProvider } from "./stt-providers/StreamingSttProvider";
 import { SttProvider } from "./SttProvider";
 
 export class ModuleWorker {
@@ -13,6 +13,7 @@ export class ModuleWorker {
 
         try {
             this.inApiCall = true;
+
             const userMessageOriginal = await SttProvider.sttProvider.getUserMessage();
             let userMessageFormatted = userMessageOriginal.trim();
 
@@ -28,9 +29,11 @@ export class ModuleWorker {
                 // Detect trigger words
                 let messageStart = -1;
 
-                if (extension_settings.speech_recognition.Streaming.triggerWordsEnabled) {
+                const streamingSettings = (<StreamingSttProvider>SttProvider.sttProvider).settings;
 
-                    for (const triggerWord of extension_settings.speech_recognition.Streaming.triggerWords) {
+                if (streamingSettings.triggerWordsEnabled) {
+
+                    for (const triggerWord of streamingSettings.triggerWords) {
                         const triggerPos = userMessageRaw.indexOf(triggerWord.toLowerCase());
 
                         // Trigger word not found or not starting message and just a substring
@@ -42,7 +45,7 @@ export class ModuleWorker {
                             if (triggerPos < messageStart || messageStart == -1) { // & (triggerPos + triggerWord.length) < userMessageFormatted.length)) {
                                 messageStart = triggerPos; // + triggerWord.length + 1;
 
-                                if (!extension_settings.speech_recognition.Streaming.triggerWordsIncluded)
+                                if (!streamingSettings.triggerWordsIncluded)
                                     messageStart = triggerPos + triggerWord.length + 1;
                             }
                         }
@@ -53,7 +56,7 @@ export class ModuleWorker {
 
                 if (messageStart == -1) {
                     console.debug(DEBUG_PREFIX + 'message ignored, no trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"');
-                    if (extension_settings.speech_recognition.Streaming.debug) {
+                    if (streamingSettings.debug) {
                         window.toastr.info(
                             'No trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"',
                             DEBUG_PREFIX + 'message ignored.',

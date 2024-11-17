@@ -1,7 +1,7 @@
 import { DEBUG_PREFIX, STT_PROVIDERS } from "./constants";
-import { extension_settings } from "./externals/sillytavern-extensions";
 import { saveSettingsDebounced } from "./externals/sillytavern-script";
 import { MediaRecorderHelper } from "./helpers/MediaRecorderHelper";
+import { SettingsHelper } from "./helpers/SettingsHelper";
 import { TranscriptionHelper } from "./helpers/TranscriptionHelper";
 import { UiHelper } from "./helpers/UiHelper";
 
@@ -15,12 +15,12 @@ export class SttProvider {
         $('#speech_recognition_provider_settings').html('');
 
         // Init provider references
-        extension_settings.speech_recognition.currentProvider = provider;
+        SettingsHelper.settings.currentProvider = provider;
         this.sttProviderName = provider;
 
-        if (!(this.sttProviderName in extension_settings.speech_recognition)) {
+        if (!(this.sttProviderName in SettingsHelper.settings)) {
             console.warn(`Provider ${this.sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
-            extension_settings.speech_recognition[this.sttProviderName] = {};
+            SettingsHelper.settings[this.sttProviderName] = {};
         }
 
         $('#speech_recognition_provider').val(this.sttProviderName);
@@ -50,19 +50,19 @@ export class SttProvider {
         if (this.sttProviderName == 'Browser') {
             $('#speech_recognition_language_div').hide();
             this.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
-            this.sttProvider.loadSettings(extension_settings.speech_recognition[this.sttProviderName]);
+            this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
             $('#microphone_button').show();
         }
 
         const nonStreamingProviders = ['Vosk', 'Whisper (OpenAI)', 'Whisper (Extras)', 'Whisper (Local)', 'KoboldCpp'];
         if (nonStreamingProviders.includes(this.sttProviderName)) {
-            this.sttProvider.loadSettings(extension_settings.speech_recognition[this.sttProviderName]);
+            this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
             await MediaRecorderHelper.loadNavigatorAudioRecording();
             $('#microphone_button').show();
         }
 
         if (this.sttProviderName == 'Streaming') {
-            this.sttProvider.loadSettings(extension_settings.speech_recognition[this.sttProviderName]);
+            this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
             $('#microphone_button').off('click');
             $('#microphone_button').hide();
         }
@@ -90,8 +90,8 @@ export class SttProvider {
     }
 
     static onSttLanguageChange() {
-        extension_settings.speech_recognition[this.sttProviderName].language = String($('#speech_recognition_language').val());
-        this.sttProvider.loadSettings(extension_settings.speech_recognition[this.sttProviderName]);
+        SettingsHelper.settings[this.sttProviderName].language = String($('#speech_recognition_language').val());
+        this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
         saveSettingsDebounced();
     }
 
@@ -105,7 +105,7 @@ export class SttProvider {
         this.sttProvider.onSettingsChange();
 
         // Persist changes to SillyTavern stt extension settings
-        extension_settings.speech_recognition[this.sttProviderName] = this.sttProvider.settings;
+        SettingsHelper.settings[this.sttProviderName] = this.sttProvider.settings;
         saveSettingsDebounced();
         console.info(`Saved settings ${this.sttProviderName} ${JSON.stringify(this.sttProvider.settings)}`);
     }

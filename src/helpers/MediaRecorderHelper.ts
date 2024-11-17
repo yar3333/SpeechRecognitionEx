@@ -1,10 +1,10 @@
 import { DEBUG_PREFIX, URL_TO_EXTENSION } from "@/constants";
 import { LoaderHelper } from "./LoaderHelper";
-import { extension_settings } from "@/externals/sillytavern-extensions";
 import { WaveHelper } from "./WaveHelper";
 import { SttProvider } from "@/SttProvider";
 import { TranscriptionHelper } from "./TranscriptionHelper";
 import { UiHelper } from "./UiHelper";
+import { SettingsHelper } from "./SettingsHelper";
 
 export class MediaRecorderHelper {
 
@@ -41,7 +41,7 @@ export class MediaRecorderHelper {
             redemptionFrames: 15,
 
             onSpeechStart: () => {
-                if (!this.audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
+                if (!this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
                     console.debug(DEBUG_PREFIX + 'Voice started');
                     if (micButton.is(':visible')) {
                         micButton.trigger('click');
@@ -49,7 +49,7 @@ export class MediaRecorderHelper {
                 }
             },
             onSpeechEnd: async (audio) => {
-                if (this.audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
+                if (this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
                     console.debug(DEBUG_PREFIX + 'Voice stopped');
                     if (micButton.is(':visible')) {
                         micButton.trigger('click');
@@ -64,7 +64,7 @@ export class MediaRecorderHelper {
 
         micButton.off('click').on('click', () => {
             if (!this.audioRecording) {
-                if (!extension_settings.speech_recognition.voiceActivationEnabled) {
+                if (!SettingsHelper.settings.voiceActivationEnabled) {
                     this.mediaRecorder.start();
                 }
                 console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
@@ -73,7 +73,7 @@ export class MediaRecorderHelper {
                 UiHelper.activateMicIcon(micButton);
             }
             else {
-                if (!extension_settings.speech_recognition.voiceActivationEnabled) {
+                if (!SettingsHelper.settings.voiceActivationEnabled) {
                     this.mediaRecorder.stop();
                 }
                 console.debug(DEBUG_PREFIX + this.mediaRecorder.state);

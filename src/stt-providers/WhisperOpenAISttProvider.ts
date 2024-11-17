@@ -4,7 +4,8 @@ export { WhisperOpenAISttProvider };
 const DEBUG_PREFIX = '<Speech Recognition module (Whisper OpenAI)> ';
 
 class WhisperOpenAISttProvider {
-    settings;
+
+    settings = null;
 
     defaultSettings = {
         language: '',

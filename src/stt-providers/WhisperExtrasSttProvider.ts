@@ -8,7 +8,7 @@ class WhisperExtrasSttProvider {
     // Config //
     //########//
 
-    settings;
+    settings = null;
 
     defaultSettings = {
         //model_path: "",

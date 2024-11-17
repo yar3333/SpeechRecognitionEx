@@ -6,7 +6,7 @@ const DEBUG_PREFIX = '<Speech Recognition module (Whisper Local)> ';
 
 class WhisperLocalSttProvider {
 
-    settings;
+    settings = null;
 
     defaultSettings = {
         language: '',

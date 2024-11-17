@@ -8,7 +8,7 @@ class VoskSttProvider {
     // Config //
     //########//
 
-    settings;
+    settings = null;
 
     defaultSettings = {
         language: '',

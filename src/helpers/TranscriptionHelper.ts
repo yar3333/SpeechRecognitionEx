@@ -1,6 +1,7 @@
 import { sendMessageAsUser } from '../externals/sillytavern-script';
-import { getContext, extension_settings } from '../externals/sillytavern-extensions';
+import { getContext } from '../externals/sillytavern-extensions';
 import { DEBUG_PREFIX } from '../constants';
+import { SettingsHelper } from './SettingsHelper';
 
 declare global {
     interface Window { vad: any; }
@@ -15,7 +16,7 @@ export class TranscriptionHelper {
 
             if (transcriptFormatted.length > 0) {
                 console.debug(DEBUG_PREFIX + 'recorded transcript: "' + transcriptFormatted + '"');
-                const messageMode = extension_settings.speech_recognition.messageMode;
+                const messageMode = SettingsHelper.settings.messageMode;
                 console.debug(DEBUG_PREFIX + 'mode: ' + messageMode);
 
                 let transcriptLower = transcriptFormatted.toLowerCase();
@@ -23,15 +24,15 @@ export class TranscriptionHelper {
                 let transcriptRaw = transcriptLower.replace(/[^\w\s\'а-я]|_/g, '').replace(/\s+/g, ' ');
 
                 // Check message mapping
-                if (extension_settings.speech_recognition.messageMappingEnabled) {
+                if (SettingsHelper.settings.messageMappingEnabled) {
                     // also check transcriptFormatted for non ascii keys
                     for (const s of [transcriptRaw, transcriptFormatted]) {
                         console.debug(DEBUG_PREFIX + 'Start searching message mapping into:', s);
-                        for (const key in extension_settings.speech_recognition.messageMapping) {
-                            console.debug(DEBUG_PREFIX + 'message mapping searching: ', key, '=>', extension_settings.speech_recognition.messageMapping[key]);
+                        for (const key in SettingsHelper.settings.messageMapping) {
+                            console.debug(DEBUG_PREFIX + 'message mapping searching: ', key, '=>', SettingsHelper.settings.messageMapping[key]);
                             if (s.includes(key)) {
-                                var message = extension_settings.speech_recognition.messageMapping[key];
-                                console.debug(DEBUG_PREFIX + 'message mapping found: ', key, '=>', extension_settings.speech_recognition.messageMapping[key]);
+                                var message = SettingsHelper.settings.messageMapping[key];
+                                console.debug(DEBUG_PREFIX + 'message mapping found: ', key, '=>', SettingsHelper.settings.messageMapping[key]);
                                 $('#send_textarea').val(message);
 
                                 if (messageMode == 'auto_send') await getContext().generate();

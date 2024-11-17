@@ -1,16 +1,22 @@
 import { getApiUrl, doExtrasFetch, modules } from '../externals/sillytavern-extensions';
-export { StreamingSttProvider };
 
 const DEBUG_PREFIX = '<Speech Recognition module (streaming)> ';
 
-class StreamingSttProvider {
-    //########//
-    // Config //
-    //########//
+export interface StreamingSttProviderSettings {
+    triggerCharMin: number;
+    triggerWordsText: string;
+    triggerWords: string[];
+    triggerWordsEnabled: boolean;
+    triggerWordsIncluded: boolean;
+    debug: boolean;
+    language: string;
+}
 
-    settings;
+export class StreamingSttProvider {
 
-    defaultSettings = {
+    public settings: StreamingSttProviderSettings = null;
+
+    defaultSettings: StreamingSttProviderSettings = {
         triggerCharMin: 0,
         triggerWordsText: '',
         triggerWords: [],
@@ -46,7 +52,7 @@ class StreamingSttProvider {
 
     onSettingsChange() {
         this.settings.triggerCharMin = Number.parseInt(<string>$('#speech_recognition_streaming_trigger_min_chars').val());
-        this.settings.triggerWordsText = $('#speech_recognition_streaming_trigger_words').val();
+        this.settings.triggerWordsText = <string>$('#speech_recognition_streaming_trigger_words').val();
         let array = (<string>$('#speech_recognition_streaming_trigger_words').val()).split(',');
         array = array.map(element => { return element.trim().toLowerCase(); });
         array = array.filter((str) => str !== '');

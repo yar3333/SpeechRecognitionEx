@@ -20,16 +20,3 @@ export const STT_PROVIDERS = {
     Vosk: VoskSttProvider,
     Streaming: StreamingSttProvider,
 };
-
-export const DEFAULT_SETTINGS = {
-    currentProvider: 'None',
-    messageMode: 'append',
-    messageMappingText: '',
-    messageMapping: [],
-    messageMappingEnabled: false,
-    voiceActivationEnabled: false,
-    /**
-     * @type {KeyCombo} Push-to-talk key combo
-     */
-    ptt: null,
-};

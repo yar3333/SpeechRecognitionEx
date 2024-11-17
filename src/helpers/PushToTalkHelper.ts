@@ -1,15 +1,15 @@
 import { DEBUG_PREFIX } from "@/constants";
 import { MediaRecorderHelper } from "./MediaRecorderHelper";
-import { extension_settings } from "@/externals/sillytavern-extensions";
 import { KeyboardHelper } from "./KeyboardHelper";
 import { SttProvider } from "@/SttProvider";
+import { SettingsHelper } from "./SettingsHelper";
 
 export class PushToTalkHelper {
 
     private static lastPressTime = 0;
 
     public static isPushToTalkEnabled(): boolean {
-        return extension_settings.speech_recognition.ptt !== null
+        return SettingsHelper.settings.ptt !== null
             && SttProvider.sttProviderName !== 'Streaming'
             && SttProvider.sttProviderName !== 'None';
     }
@@ -19,7 +19,7 @@ export class PushToTalkHelper {
         if (!this.isPushToTalkEnabled()) return;
 
 
-        const key = extension_settings.speech_recognition.ptt;
+        const key = SettingsHelper.settings.ptt;
 
         // Key combo match - toggle recording
         if (KeyboardHelper.isKeyComboMatch(key, event) && !event.repeat) {
@@ -33,7 +33,7 @@ export class PushToTalkHelper {
         if (!this.isPushToTalkEnabled()) return;
 
         /** @type {KeyCombo} */
-        const key = extension_settings.speech_recognition.ptt;
+        const key = SettingsHelper.settings.ptt;
 
         // Key combo match (without modifier keys)
         if (key.code === event.code) {

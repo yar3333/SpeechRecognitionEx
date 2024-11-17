@@ -2,10 +2,11 @@ import { Component, Vue, toNative } from 'vue-facing-decorator';
 import { extension_settings, ModuleWorkerWrapper } from './externals/sillytavern-extensions';
 import { SttProvider } from './SttProvider';
 import { ModuleWorker } from './ModuleWorker';
-import { DEBUG_PREFIX, DEFAULT_SETTINGS, STT_PROVIDERS } from './constants';
+import { DEBUG_PREFIX, STT_PROVIDERS } from './constants';
 import { saveSettingsDebounced } from './externals/sillytavern-script';
 import { KeyboardHelper } from './helpers/KeyboardHelper';
 import { PushToTalkHelper } from './helpers/PushToTalkHelper';
+import { SettingsHelper } from './helpers/SettingsHelper';
 
 const UPDATE_INTERVAL = 100;
 
@@ -21,7 +22,7 @@ class App extends Vue {
     setup() {
         this.addExtensionControls(); // No init dependencies
         this.loadSettings(); // Depends on Extension Controls and loadTtsProvider
-        SttProvider.loadSttProvider(extension_settings.speech_recognition.currentProvider); // No dependencies
+        SttProvider.loadSttProvider(SettingsHelper.settings.currentProvider); // No dependencies
         const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
         setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL); // Init depends on all the things
         ModuleWorker.moduleWorker();
@@ -51,13 +52,13 @@ class App extends Vue {
                     }
 
                     if (e.key === 'Escape') {
-                        extension_settings.speech_recognition.ptt = null;
+                        SettingsHelper.settings.ptt = null;
                         saveSettingsDebounced();
                         return this.blur();
                     }
 
                     const keyCombo = KeyboardHelper.keyboardEventToKeyCombo(<KeyboardEvent><any>e);
-                    extension_settings.speech_recognition.ptt = keyCombo;
+                    SettingsHelper.settings.ptt = keyCombo;
                     saveSettingsDebounced();
                     return this.blur();
                 });
@@ -66,8 +67,8 @@ class App extends Vue {
         $('#speech_recognition_ptt').on('blur', function () {
             if (this instanceof HTMLInputElement) {
                 $(this).off('keydown');
-                if (extension_settings.speech_recognition.ptt) {
-                    this.value = KeyboardHelper.formatPushToTalkKey(extension_settings.speech_recognition.ptt);
+                if (SettingsHelper.settings.ptt) {
+                    this.value = KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt);
                 } else {
                     this.value = '';
                 }
@@ -87,32 +88,26 @@ class App extends Vue {
     }
 
     private loadSettings() {
-        if (Object.keys(extension_settings.speech_recognition).length === 0) {
-            Object.assign(extension_settings.speech_recognition, DEFAULT_SETTINGS);
-        }
-        for (const key in DEFAULT_SETTINGS) {
-            if (extension_settings.speech_recognition[key] === undefined) {
-                extension_settings.speech_recognition[key] = DEFAULT_SETTINGS[key];
-            }
-        }
-        $('#speech_recognition_enabled').prop('checked', extension_settings.speech_recognition.enabled);
-        $('#speech_recognition_message_mode').val(extension_settings.speech_recognition.messageMode);
+        SettingsHelper.ensureSettingsContainsAllKeys();
 
-        if (extension_settings.speech_recognition.messageMappingText.length > 0) {
-            $('#speech_recognition_message_mapping').val(extension_settings.speech_recognition.messageMappingText);
+        $('#speech_recognition_enabled').prop('checked', SettingsHelper.settings.enabled);
+        $('#speech_recognition_message_mode').val(SettingsHelper.settings.messageMode);
+
+        if (SettingsHelper.settings.messageMappingText.length > 0) {
+            $('#speech_recognition_message_mapping').val(SettingsHelper.settings.messageMappingText);
         }
 
-        $('#speech_recognition_message_mapping_enabled').prop('checked', extension_settings.speech_recognition.messageMappingEnabled);
-        $('#speech_recognition_ptt').val(extension_settings.speech_recognition.ptt
-            ? KeyboardHelper.formatPushToTalkKey(extension_settings.speech_recognition.ptt)
+        $('#speech_recognition_message_mapping_enabled').prop('checked', SettingsHelper.settings.messageMappingEnabled);
+        $('#speech_recognition_ptt').val(SettingsHelper.settings.ptt
+            ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt)
             : '');
-        $('#speech_recognition_voice_activation_enabled').prop('checked', extension_settings.speech_recognition.voiceActivationEnabled);
+        $('#speech_recognition_voice_activation_enabled').prop('checked', SettingsHelper.settings.voiceActivationEnabled);
     }
 
     async onMessageModeChange() {
-        extension_settings.speech_recognition.messageMode = $('#speech_recognition_message_mode').val();
+        SettingsHelper.settings.messageMode = <string>$('#speech_recognition_message_mode').val();
 
-        if (SttProvider.sttProviderName != 'Browser' && extension_settings.speech_recognition.messageMode == 'auto_send') {
+        if (SttProvider.sttProviderName != 'Browser' && SettingsHelper.settings.messageMode == 'auto_send') {
             $('#speech_recognition_wait_response_div').show();
         }
         else {
@@ -126,31 +121,31 @@ class App extends Vue {
         let array = String($('#speech_recognition_message_mapping').val()).split(',');
         array = array.map(element => { return element.trim(); });
         array = array.filter((str) => str !== '');
-        extension_settings.speech_recognition.messageMapping = {};
+        SettingsHelper.settings.messageMapping = {};
         for (const text of array) {
             if (text.includes('=')) {
                 const pair = text.toLowerCase().split('=');
-                extension_settings.speech_recognition.messageMapping[pair[0].trim()] = pair[1].trim();
-                console.debug(DEBUG_PREFIX + 'Added mapping', pair[0], '=>', extension_settings.speech_recognition.messageMapping[pair[0]]);
+                SettingsHelper.settings.messageMapping[pair[0].trim()] = pair[1].trim();
+                console.debug(DEBUG_PREFIX + 'Added mapping', pair[0], '=>', SettingsHelper.settings.messageMapping[pair[0]]);
             }
             else {
                 console.debug(DEBUG_PREFIX + 'Wrong syntax for message mapping, no \'=\' found in:', text);
             }
         }
 
-        $('#speech_recognition_message_mapping_status').text('Message mapping updated to: ' + JSON.stringify(extension_settings.speech_recognition.messageMapping));
-        console.debug(DEBUG_PREFIX + 'Updated message mapping', extension_settings.speech_recognition.messageMapping);
-        extension_settings.speech_recognition.messageMappingText = $('#speech_recognition_message_mapping').val();
+        $('#speech_recognition_message_mapping_status').text('Message mapping updated to: ' + JSON.stringify(SettingsHelper.settings.messageMapping));
+        console.debug(DEBUG_PREFIX + 'Updated message mapping', SettingsHelper.settings.messageMapping);
+        SettingsHelper.settings.messageMappingText = <string>$('#speech_recognition_message_mapping').val();
         saveSettingsDebounced();
     }
 
     private async onMessageMappingEnabledClick() {
-        extension_settings.speech_recognition.messageMappingEnabled = $('#speech_recognition_message_mapping_enabled').is(':checked');
+        SettingsHelper.settings.messageMappingEnabled = $('#speech_recognition_message_mapping_enabled').is(':checked');
         saveSettingsDebounced();
     }
 
     private onVoiceActivationEnabledChange() {
-        extension_settings.speech_recognition.voiceActivationEnabled = !!$('#speech_recognition_voice_activation_enabled').prop('checked');
+        SettingsHelper.settings.voiceActivationEnabled = !!$('#speech_recognition_voice_activation_enabled').prop('checked');
         saveSettingsDebounced();
     }
 }
