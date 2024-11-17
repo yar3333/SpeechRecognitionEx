@@ -3,8 +3,7 @@
 // First version by Cohee#1207
 // Adapted by Tony-sama
 
-export { BrowserSttProvider };
-export { activateMicIcon, deactivateMicIcon };
+import { UiHelper } from "@/helpers/UiHelper";
 
 declare global {
     interface Window {
@@ -17,28 +16,7 @@ declare global {
 
 const DEBUG_PREFIX = '<Speech Recognition module (Browser)> ';
 
-/**
- * Set the microphone icon as active. Must be called when recording starts.
- * @param {JQuery} micButton - The jQuery object of the microphone button.
- */
-function activateMicIcon(micButton) {
-    micButton.toggleClass('fa-microphone fa-microphone-slash');
-    micButton.prop('title', 'Click to end and transcribe');
-}
-
-/**
- * Set the microphone icon as inactive. Must be called when recording ends.
- * @param {JQuery} micButton - The jQuery object of the microphone button.
- */
-function deactivateMicIcon(micButton) {
-    micButton.toggleClass('fa-microphone fa-microphone-slash');
-    micButton.prop('title', 'Click to speak');
-}
-
-class BrowserSttProvider {
-    //########//
-    // Config //
-    //########//
+export class BrowserSttProvider {
 
     settings = {
         language: '',
@@ -240,7 +218,7 @@ class BrowserSttProvider {
         recognition.onend = function () {
             listening = false;
             console.debug(DEBUG_PREFIX + 'recorder stopped');
-            deactivateMicIcon(button);
+            UiHelper.deactivateMicIcon(button);
 
             const newText = (<string>textarea.val()).substring(initialText.length);
             textarea.val((<string>textarea.val()).substring(0, initialText.length));
@@ -251,7 +229,7 @@ class BrowserSttProvider {
         recognition.onstart = function () {
             initialText = <string>textarea.val();
             console.debug(DEBUG_PREFIX + 'recorder started');
-            activateMicIcon(button);
+            UiHelper.activateMicIcon(button);
 
             if ($('#speech_recognition_message_mode').val() == 'replace') {
                 textarea.val('');

@@ -5,7 +5,26 @@
             "type": "npm",
             "script": "build",
             "problemMatcher": [],
-            "label": "npm build",
+            "label": "npm run build",
+            "detail": "",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            }
+        },
+        {
+            "type": "npm",
+            "script": "dev",
+            "problemMatcher": [],
+            "label": "npm run dev",
             "detail": "",
             "group": {
                 "kind": "build",
