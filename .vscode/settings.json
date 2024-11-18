@@ -9,5 +9,6 @@
     "files.exclude": {
         "*.png": true,
         "LICENSE": true
-    }
+    },
+    "editor.formatOnSave": true
 }

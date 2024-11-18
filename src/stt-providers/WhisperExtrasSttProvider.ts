@@ -1,14 +1,11 @@
 import { getApiUrl, doExtrasFetch } from '../externals/sillytavern-extensions';
-export { WhisperExtrasSttProvider };
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (Whisper Extras)> ';
 
-class WhisperExtrasSttProvider {
-    //########//
-    // Config //
-    //########//
+export class WhisperExtrasSttProvider implements ISttProvider {
 
-    settings = null;
+    settings: { language: string } = null;
 
     defaultSettings = {
         //model_path: "",

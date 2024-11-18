@@ -4,6 +4,7 @@
 // Adapted by Tony-sama
 
 import { UiHelper } from "@/helpers/UiHelper";
+import type { ISttProvider } from "./ISttProvider";
 
 declare global {
     interface Window {
@@ -16,7 +17,7 @@ declare global {
 
 const DEBUG_PREFIX = '<Speech Recognition module (Browser)> ';
 
-export class BrowserSttProvider {
+export class BrowserSttProvider implements ISttProvider {
 
     settings = {
         language: '',

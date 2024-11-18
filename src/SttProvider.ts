@@ -4,11 +4,13 @@ import { MediaRecorderHelper } from "./helpers/MediaRecorderHelper";
 import { SettingsHelper } from "./helpers/SettingsHelper";
 import { TranscriptionHelper } from "./helpers/TranscriptionHelper";
 import { UiHelper } from "./helpers/UiHelper";
+import type { BrowserSttProvider } from "./stt-providers/BrowserSttProvider";
+import type { ISttProvider } from "./stt-providers/ISttProvider";
 
 export class SttProvider {
 
     public static sttProviderName = "none";
-    public static sttProvider: any;
+    public static sttProvider: ISttProvider;
 
     public static async loadSttProvider(provider: string) {
         //Clear the current config and add new config
@@ -49,7 +51,7 @@ export class SttProvider {
         // Use microphone button as push to talk
         if (this.sttProviderName == 'Browser') {
             $('#speech_recognition_language_div').hide();
-            this.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
+            (<BrowserSttProvider>this.sttProvider).processTranscriptFunction = TranscriptionHelper.processTranscript;
             this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
             $('#microphone_button').show();
         }

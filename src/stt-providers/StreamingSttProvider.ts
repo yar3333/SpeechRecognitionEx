@@ -1,4 +1,5 @@
 import { getApiUrl, doExtrasFetch, modules } from '../externals/sillytavern-extensions';
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (streaming)> ';
 
@@ -12,7 +13,7 @@ export interface StreamingSttProviderSettings {
     language: string;
 }
 
-export class StreamingSttProvider {
+export class StreamingSttProvider implements ISttProvider {
 
     public settings: StreamingSttProviderSettings = null;
 

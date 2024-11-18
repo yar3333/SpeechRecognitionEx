@@ -1,14 +1,11 @@
 import { getApiUrl, doExtrasFetch } from '../externals/sillytavern-extensions';
-export { VoskSttProvider };
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (Vosk)> ';
 
-class VoskSttProvider {
-    //########//
-    // Config //
-    //########//
+export class VoskSttProvider implements ISttProvider {
 
-    settings = null;
+    settings: { language: string } = null;
 
     defaultSettings = {
         language: '',

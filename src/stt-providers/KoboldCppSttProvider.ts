@@ -1,15 +1,12 @@
 import { textgenerationwebui_settings, textgen_types } from '../externals/sillytavern-textgen-settings';
 import { getRequestHeaders } from '../externals/sillytavern-script';
-export { KoboldCppSttProvider };
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (KoboldCpp)> ';
 
-class KoboldCppSttProvider {
-    //########//
-    // Config //
-    //########//
+export class KoboldCppSttProvider implements ISttProvider {
 
-    settings;
+    settings: { language: string } = null;
 
     defaultSettings = {
         language: '',

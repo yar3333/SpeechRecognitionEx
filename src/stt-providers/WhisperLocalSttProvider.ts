@@ -1,12 +1,12 @@
 import { getRequestHeaders } from '../externals/sillytavern-script';
 import { getBase64Async } from '../externals/sillytavern-utils';
-export { WhisperLocalSttProvider };
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (Whisper Local)> ';
 
-class WhisperLocalSttProvider {
+export class WhisperLocalSttProvider implements ISttProvider {
 
-    settings = null;
+    settings: { language: string; model: string; } = null;
 
     defaultSettings = {
         language: '',

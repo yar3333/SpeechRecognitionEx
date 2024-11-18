@@ -1,11 +1,11 @@
 import { getRequestHeaders } from '../externals/sillytavern-script';
-export { WhisperOpenAISttProvider };
+import type { ISttProvider } from './ISttProvider';
 
 const DEBUG_PREFIX = '<Speech Recognition module (Whisper OpenAI)> ';
 
-class WhisperOpenAISttProvider {
+export class WhisperOpenAISttProvider implements ISttProvider {
 
-    settings = null;
+    settings: { language: string } = null;
 
     defaultSettings = {
         language: '',

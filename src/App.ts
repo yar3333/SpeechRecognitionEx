@@ -1,5 +1,5 @@
 import { Component, Vue, toNative } from 'vue-facing-decorator';
-import { extension_settings, ModuleWorkerWrapper } from './externals/sillytavern-extensions';
+import { ModuleWorkerWrapper } from './externals/sillytavern-extensions';
 import { SttProvider } from './SttProvider';
 import { ModuleWorker } from './ModuleWorker';
 import { DEBUG_PREFIX, STT_PROVIDERS } from './constants';
