@@ -65,7 +65,7 @@ export class StreamingSttProvider implements ISttProvider {
         this.loadSettings(this.settings);
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         // Populate Provider UI given input settings
         if (Object.keys(settings).length == 0) {
             console.debug(DEBUG_PREFIX + 'Using default Whisper STT extension settings');
@@ -76,7 +76,7 @@ export class StreamingSttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to STT extension: ${key}`;
             }

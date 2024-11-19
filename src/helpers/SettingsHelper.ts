@@ -1,3 +1,4 @@
+import { reactive, isReactive } from "vue";
 import { extension_settings } from "@/externals/sillytavern-extensions";
 import type { KeyCombo } from "./KeyboardHelper";
 
@@ -10,6 +11,8 @@ export interface ISpeechRecognitionSettings {
     messageMappingEnabled: boolean;
     voiceActivationEnabled: boolean;
     ptt: KeyCombo; // Push-to-talk key combo
+
+    [sttProviderName: string]: any;
 }
 
 export class SettingsHelper {
@@ -28,13 +31,17 @@ export class SettingsHelper {
     public static get settings(): ISpeechRecognitionSettings { return extension_settings.speech_recognition }
 
     public static ensureSettingsContainsAllKeys() {
-        if (Object.keys(this.settings).length === 0) {
-            Object.assign(this.settings, this.DEFAULT_SETTINGS);
+        if (Object.keys(SettingsHelper.settings).length === 0) {
+            Object.assign(SettingsHelper.settings, SettingsHelper.DEFAULT_SETTINGS);
         }
-        for (const key in this.DEFAULT_SETTINGS) {
-            if (typeof this.settings[key] === 'undefined') {
-                this.settings[key] = this.DEFAULT_SETTINGS[key];
+        for (const key in SettingsHelper.DEFAULT_SETTINGS) {
+            if (typeof SettingsHelper.settings[key] === 'undefined') {
+                SettingsHelper.settings[key] = SettingsHelper.DEFAULT_SETTINGS[key];
             }
+        }
+
+        if (!isReactive(extension_settings.speech_recognition)) {
+            extension_settings.speech_recognition = reactive(extension_settings.speech_recognition);
         }
     }
 }

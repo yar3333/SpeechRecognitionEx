@@ -9,10 +9,10 @@ export class ModuleWorker {
 
     public static async moduleWorker() {
         if (SttProvider.sttProviderName != 'Streaming') return;
-        if (this.inApiCall) return;
+        if (ModuleWorker.inApiCall) return;
 
         try {
-            this.inApiCall = true;
+            ModuleWorker.inApiCall = true;
 
             const userMessageOriginal = await (<StreamingSttProvider><any>SttProvider.sttProvider).getUserMessage();
             let userMessageFormatted = userMessageOriginal.trim();
@@ -87,7 +87,7 @@ export class ModuleWorker {
             console.debug(error);
         }
         finally {
-            this.inApiCall = false;
+            ModuleWorker.inApiCall = false;
         }
     }
 }

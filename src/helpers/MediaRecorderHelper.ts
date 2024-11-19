@@ -28,12 +28,12 @@ export class MediaRecorderHelper {
         }
         console.debug(DEBUG_PREFIX + ' getUserMedia supported by browser.');
 
-        await this.loadScripts();
+        await MediaRecorderHelper.loadScripts();
 
         const micButton = $('#microphone_button');
 
         let stream: MediaStream;
-        try { stream = await navigator.mediaDevices.getUserMedia(this.constraints) }
+        try { stream = await navigator.mediaDevices.getUserMedia(MediaRecorderHelper.constraints) }
         catch (e) { console.debug(DEBUG_PREFIX + 'The following error occured: ' + e) }
 
 
@@ -41,15 +41,15 @@ export class MediaRecorderHelper {
             redemptionFrames: 15,
 
             onSpeechStart: () => {
-                if (!this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+                if (!MediaRecorderHelper.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
                     console.debug(DEBUG_PREFIX + 'Voice started');
                     if (micButton.is(':visible')) {
                         micButton.trigger('click');
                     }
                 }
             },
-            onSpeechEnd: async (audio) => {
-                if (this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+            onSpeechEnd: async (audio: Float32Array) => {
+                if (MediaRecorderHelper.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
                     console.debug(DEBUG_PREFIX + 'Voice stopped');
                     if (micButton.is(':visible')) {
                         micButton.trigger('click');
@@ -60,39 +60,39 @@ export class MediaRecorderHelper {
         });
         myVAD.start()
 
-        this.mediaRecorder = new MediaRecorder(stream);
+        MediaRecorderHelper.mediaRecorder = new MediaRecorder(stream);
 
         micButton.off('click').on('click', () => {
-            if (!this.audioRecording) {
+            if (!MediaRecorderHelper.audioRecording) {
                 if (!SettingsHelper.settings.voiceActivationEnabled) {
-                    this.mediaRecorder.start();
+                    MediaRecorderHelper.mediaRecorder.start();
                 }
-                console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+                console.debug(DEBUG_PREFIX + MediaRecorderHelper.mediaRecorder.state);
                 console.debug(DEBUG_PREFIX + 'recorder started');
-                this.audioRecording = true;
+                MediaRecorderHelper.audioRecording = true;
                 UiHelper.activateMicIcon(micButton);
             }
             else {
                 if (!SettingsHelper.settings.voiceActivationEnabled) {
-                    this.mediaRecorder.stop();
+                    MediaRecorderHelper.mediaRecorder.stop();
                 }
-                console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+                console.debug(DEBUG_PREFIX + MediaRecorderHelper.mediaRecorder.state);
                 console.debug(DEBUG_PREFIX + 'recorder stopped');
-                this.audioRecording = false;
+                MediaRecorderHelper.audioRecording = false;
                 UiHelper.deactivateMicIcon(micButton);
             }
         });
 
-        this.mediaRecorder.onstop = async () => {
-            const r = await WaveHelper.convertAudioChunksToPcmArray(this.audioChunks);
+        MediaRecorderHelper.mediaRecorder.onstop = async () => {
+            const r = await WaveHelper.convertAudioChunksToPcmArray(MediaRecorderHelper.audioChunks);
             await processPcmArrays(r.sampleRate, r.pcmArrays);
         };
 
-        this.mediaRecorder.ondataavailable = (e) => {
-            this.audioChunks.push(e.data);
+        MediaRecorderHelper.mediaRecorder.ondataavailable = (e) => {
+            MediaRecorderHelper.audioChunks.push(e.data);
         };
 
-        async function processPcmArrays(sampleRate, pcmArrays) {
+        async function processPcmArrays(sampleRate: number, pcmArrays: Float32Array[]) {
             const wavBlob = await WaveHelper.convertPcmArraysToWavBlob(sampleRate, pcmArrays);
             const transcript = await SttProvider.sttProvider.processAudio(wavBlob);
             // TODO: lock and release recording while processing?

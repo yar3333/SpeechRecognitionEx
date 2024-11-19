@@ -27,7 +27,7 @@ export class BrowserSttProvider implements ISttProvider {
         language: 'en-US',
     };
 
-    processTranscriptFunction = null;
+    processTranscriptFunction: (text: string) => Promise<void> = null;
 
     get settingsHtml() {
         let html = ' \
@@ -98,7 +98,7 @@ export class BrowserSttProvider implements ISttProvider {
         this.loadSettings(this.settings);
     }
 
-    static capitalizeInterim(interimTranscript) {
+    static capitalizeInterim(interimTranscript: string) {
         let capitalizeIndex = -1;
         if (interimTranscript.length > 2 && interimTranscript[0] === ' ') capitalizeIndex = 1;
         else if (interimTranscript.length > 1) capitalizeIndex = 0;
@@ -111,13 +111,13 @@ export class BrowserSttProvider implements ISttProvider {
         return interimTranscript;
     }
 
-    static composeValues(previous, interim) {
+    static composeValues(previous: string, interim: string) {
         let spacing = '';
         if (previous.endsWith('.')) spacing = ' ';
         return previous + spacing + interim;
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         const processTranscript = this.processTranscriptFunction;
 
         // Populate Provider UI given input settings
@@ -130,7 +130,7 @@ export class BrowserSttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to Speech recogniton extension (browser): ${key}`;
             }
@@ -182,7 +182,7 @@ export class BrowserSttProvider implements ISttProvider {
 
         let initialText = '';
 
-        recognition.onresult = function (speechEvent) {
+        recognition.onresult = (speechEvent: { resultIndex: number; results: any[] }) => {
             let finalTranscript = '';
             let interimTranscript = '';
 
@@ -210,7 +210,7 @@ export class BrowserSttProvider implements ISttProvider {
             textarea.val(initialText + finalTranscript + interimTranscript);
         };
 
-        recognition.onerror = function (event) {
+        recognition.onerror = (event: { error: string }) => {
             console.error('Error occurred in recognition:', event.error);
             //if ($('#speech_recognition_debug').is(':checked'))
             //    toastr.error('Error occurred in recognition:'+ event.error, 'STT Generation error (Browser)', { timeOut: 10000, extendedTimeOut: 20000, preventDuplicates: true });
@@ -224,7 +224,6 @@ export class BrowserSttProvider implements ISttProvider {
             const newText = (<string>textarea.val()).substring(initialText.length);
             textarea.val((<string>textarea.val()).substring(0, initialText.length));
             processTranscript(newText);
-
         };
 
         recognition.onstart = function () {

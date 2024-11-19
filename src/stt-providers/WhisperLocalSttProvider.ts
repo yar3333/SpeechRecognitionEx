@@ -44,7 +44,7 @@ export class WhisperLocalSttProvider implements ISttProvider {
         this.loadSettings(this.settings);
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         // Populate Provider UI given input settings
         if (Object.keys(settings).length == 0) {
             console.debug(DEBUG_PREFIX + 'Using default Whisper (Local) STT extension settings');
@@ -55,7 +55,7 @@ export class WhisperLocalSttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to STT extension: ${key}`;
             }
@@ -65,7 +65,7 @@ export class WhisperLocalSttProvider implements ISttProvider {
         console.debug(DEBUG_PREFIX + 'Whisper (Local) STT settings loaded');
     }
 
-    async processAudio(audioBlob) {
+    async processAudio(audioBlob: Blob) {
         const audio = await getBase64Async(audioBlob);
         const lang = this.settings.language || null;
         const model = this.settings.model || 'Xenova/whisper-base.en';

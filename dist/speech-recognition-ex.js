@@ -7446,6 +7446,47 @@ function patchClass(el, value, isSVG) {
 }
 const vShowOriginalDisplay = Symbol("_vod");
 const vShowHidden = Symbol("_vsh");
+const vShow = {
+  beforeMount(el, { value }, { transition }) {
+    el[vShowOriginalDisplay] = el.style.display === "none" ? "" : el.style.display;
+    if (transition && value) {
+      transition.beforeEnter(el);
+    } else {
+      setDisplay(el, value);
+    }
+  },
+  mounted(el, { value }, { transition }) {
+    if (transition && value) {
+      transition.enter(el);
+    }
+  },
+  updated(el, { value, oldValue }, { transition }) {
+    if (!value === !oldValue) return;
+    if (transition) {
+      if (value) {
+        transition.beforeEnter(el);
+        setDisplay(el, true);
+        transition.enter(el);
+      } else {
+        transition.leave(el, () => {
+          setDisplay(el, false);
+        });
+      }
+    } else {
+      setDisplay(el, value);
+    }
+  },
+  beforeUnmount(el, { value }) {
+    setDisplay(el, value);
+  }
+};
+if (!!(define_process_env_default$1.NODE_ENV !== "production")) {
+  vShow.name = "show";
+}
+function setDisplay(el, value) {
+  el.style.display = value ? el[vShowOriginalDisplay] : "none";
+  el[vShowHidden] = !value;
+}
 const CSS_VAR_TEXT = Symbol(!!(define_process_env_default$1.NODE_ENV !== "production") ? "CSS_VAR_TEXT" : "");
 const displayRE = /(^|;)\s*display\s*:/;
 function patchStyle(el, prev, next) {
@@ -8724,7 +8765,7 @@ class BrowserSttProvider {
       listening = !listening;
     });
     let initialText = "";
-    recognition.onresult = function(speechEvent) {
+    recognition.onresult = (speechEvent) => {
       let finalTranscript = "";
       let interimTranscript = "";
       for (let i = speechEvent.resultIndex; i < speechEvent.results.length; ++i) {
@@ -8747,7 +8788,7 @@ class BrowserSttProvider {
       interimTranscript = BrowserSttProvider.capitalizeInterim(interimTranscript);
       textarea.val(initialText + finalTranscript + interimTranscript);
     };
-    recognition.onerror = function(event) {
+    recognition.onerror = (event) => {
       console.error("Error occurred in recognition:", event.error);
     };
     recognition.onend = function() {
@@ -9179,22 +9220,25 @@ class WaveHelper {
     });
   }
 }
-class SettingsHelper {
+const _SettingsHelper = class _SettingsHelper {
   static get settings() {
     return extension_settings.speech_recognition;
   }
   static ensureSettingsContainsAllKeys() {
-    if (Object.keys(this.settings).length === 0) {
-      Object.assign(this.settings, this.DEFAULT_SETTINGS);
+    if (Object.keys(_SettingsHelper.settings).length === 0) {
+      Object.assign(_SettingsHelper.settings, _SettingsHelper.DEFAULT_SETTINGS);
     }
-    for (const key in this.DEFAULT_SETTINGS) {
-      if (typeof this.settings[key] === "undefined") {
-        this.settings[key] = this.DEFAULT_SETTINGS[key];
+    for (const key in _SettingsHelper.DEFAULT_SETTINGS) {
+      if (typeof _SettingsHelper.settings[key] === "undefined") {
+        _SettingsHelper.settings[key] = _SettingsHelper.DEFAULT_SETTINGS[key];
       }
     }
+    if (!isReactive(extension_settings.speech_recognition)) {
+      extension_settings.speech_recognition = reactive(extension_settings.speech_recognition);
+    }
   }
-}
-__publicField(SettingsHelper, "DEFAULT_SETTINGS", {
+};
+__publicField(_SettingsHelper, "DEFAULT_SETTINGS", {
   enabled: false,
   currentProvider: "None",
   messageMode: "append",
@@ -9205,6 +9249,7 @@ __publicField(SettingsHelper, "DEFAULT_SETTINGS", {
   ptt: null
   // Push-to-talk key combo
 });
+let SettingsHelper = _SettingsHelper;
 class TranscriptionHelper {
   static async processTranscript(transcript) {
     try {
@@ -9260,25 +9305,25 @@ class TranscriptionHelper {
     }
   }
 }
-class MediaRecorderHelper {
+const _MediaRecorderHelper = class _MediaRecorderHelper {
   static async loadNavigatorAudioRecording() {
     if (!navigator.mediaDevices.getUserMedia) {
       console.debug(DEBUG_PREFIX + "getUserMedia not supported on your browser!");
       window.toastr.error("getUserMedia not supported", DEBUG_PREFIX + "not supported for your browser.", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
     }
     console.debug(DEBUG_PREFIX + " getUserMedia supported by browser.");
-    await this.loadScripts();
+    await _MediaRecorderHelper.loadScripts();
     const micButton = $("#microphone_button");
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia(this.constraints);
+      stream = await navigator.mediaDevices.getUserMedia(_MediaRecorderHelper.constraints);
     } catch (e) {
       console.debug(DEBUG_PREFIX + "The following error occured: " + e);
     }
     const myVAD = await window.vad.MicVAD.new({
       redemptionFrames: 15,
       onSpeechStart: () => {
-        if (!this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+        if (!_MediaRecorderHelper.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
           console.debug(DEBUG_PREFIX + "Voice started");
           if (micButton.is(":visible")) {
             micButton.trigger("click");
@@ -9286,7 +9331,7 @@ class MediaRecorderHelper {
         }
       },
       onSpeechEnd: async (audio) => {
-        if (this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+        if (_MediaRecorderHelper.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
           console.debug(DEBUG_PREFIX + "Voice stopped");
           if (micButton.is(":visible")) {
             micButton.trigger("click");
@@ -9296,32 +9341,32 @@ class MediaRecorderHelper {
       }
     });
     myVAD.start();
-    this.mediaRecorder = new MediaRecorder(stream);
+    _MediaRecorderHelper.mediaRecorder = new MediaRecorder(stream);
     micButton.off("click").on("click", () => {
-      if (!this.audioRecording) {
+      if (!_MediaRecorderHelper.audioRecording) {
         if (!SettingsHelper.settings.voiceActivationEnabled) {
-          this.mediaRecorder.start();
+          _MediaRecorderHelper.mediaRecorder.start();
         }
-        console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+        console.debug(DEBUG_PREFIX + _MediaRecorderHelper.mediaRecorder.state);
         console.debug(DEBUG_PREFIX + "recorder started");
-        this.audioRecording = true;
+        _MediaRecorderHelper.audioRecording = true;
         UiHelper.activateMicIcon(micButton);
       } else {
         if (!SettingsHelper.settings.voiceActivationEnabled) {
-          this.mediaRecorder.stop();
+          _MediaRecorderHelper.mediaRecorder.stop();
         }
-        console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+        console.debug(DEBUG_PREFIX + _MediaRecorderHelper.mediaRecorder.state);
         console.debug(DEBUG_PREFIX + "recorder stopped");
-        this.audioRecording = false;
+        _MediaRecorderHelper.audioRecording = false;
         UiHelper.deactivateMicIcon(micButton);
       }
     });
-    this.mediaRecorder.onstop = async () => {
-      const r = await WaveHelper.convertAudioChunksToPcmArray(this.audioChunks);
+    _MediaRecorderHelper.mediaRecorder.onstop = async () => {
+      const r = await WaveHelper.convertAudioChunksToPcmArray(_MediaRecorderHelper.audioChunks);
       await processPcmArrays(r.sampleRate, r.pcmArrays);
     };
-    this.mediaRecorder.ondataavailable = (e) => {
-      this.audioChunks.push(e.data);
+    _MediaRecorderHelper.mediaRecorder.ondataavailable = (e) => {
+      _MediaRecorderHelper.audioChunks.push(e.data);
     };
     async function processPcmArrays(sampleRate, pcmArrays) {
       const wavBlob = await WaveHelper.convertPcmArraysToWavBlob(sampleRate, pcmArrays);
@@ -9337,33 +9382,37 @@ class MediaRecorderHelper {
       setTimeout(() => resolve(null), 1);
     });
   }
-}
-__publicField(MediaRecorderHelper, "constraints", {
+};
+__publicField(_MediaRecorderHelper, "constraints", {
   audio: {
     sampleSize: 16,
     channelCount: 1,
     sampleRate: 16e3
   }
 });
-__publicField(MediaRecorderHelper, "audioRecording", false);
-__publicField(MediaRecorderHelper, "audioChunks", []);
-__publicField(MediaRecorderHelper, "mediaRecorder", null);
+__publicField(_MediaRecorderHelper, "audioRecording", false);
+__publicField(_MediaRecorderHelper, "audioChunks", []);
+__publicField(_MediaRecorderHelper, "mediaRecorder", null);
+let MediaRecorderHelper = _MediaRecorderHelper;
 const _SttProvider = class _SttProvider {
   static get sttProviderName() {
-    return this._sttProviderName;
+    return _SttProvider.inner.sttProviderName;
   }
   static set sttProviderName(v) {
     _SttProvider.loadSttProvider(v).then((_) => saveSettingsDebounced());
   }
+  static get sttProvider() {
+    return _SttProvider.inner.sttProvider;
+  }
   static async loadSttProvider(provider) {
     SettingsHelper.settings.currentProvider = provider;
-    this._sttProviderName = provider;
-    if (!(this.sttProviderName in SettingsHelper.settings)) {
-      console.warn(`Provider ${this.sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
-      SettingsHelper.settings[this.sttProviderName] = {};
+    _SttProvider.inner.sttProviderName = provider;
+    if (!(_SttProvider.sttProviderName in SettingsHelper.settings)) {
+      console.warn(`Provider ${_SttProvider.sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
+      SettingsHelper.settings[_SttProvider.sttProviderName] = {};
     }
-    this.stopCurrentProvider();
-    if (this.sttProviderName == "None") {
+    _SttProvider.stopCurrentProvider();
+    if (_SttProvider.sttProviderName == "None") {
       $("#microphone_button").hide();
       $("#speech_recognition_message_mode_div").hide();
       $("#speech_recognition_message_mapping_div").hide();
@@ -9371,20 +9420,20 @@ const _SttProvider = class _SttProvider {
     }
     $("#speech_recognition_message_mode_div").show();
     $("#speech_recognition_message_mapping_div").show();
-    this.sttProvider = new STT_PROVIDERS[this.sttProviderName]();
-    if (this.sttProviderName == "Browser") {
-      this.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
-      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+    _SttProvider.inner.sttProvider = new STT_PROVIDERS[_SttProvider.sttProviderName]();
+    if (_SttProvider.sttProviderName == "Browser") {
+      _SttProvider.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
+      _SttProvider.sttProvider.loadSettings(SettingsHelper.settings[_SttProvider.sttProviderName]);
       $("#microphone_button").show();
     }
     const nonStreamingProviders = ["Vosk", "Whisper (OpenAI)", "Whisper (Extras)", "Whisper (Local)", "KoboldCpp"];
-    if (nonStreamingProviders.includes(this.sttProviderName)) {
-      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+    if (nonStreamingProviders.includes(_SttProvider.sttProviderName)) {
+      _SttProvider.sttProvider.loadSettings(SettingsHelper.settings[_SttProvider.sttProviderName]);
       await MediaRecorderHelper.loadNavigatorAudioRecording();
       $("#microphone_button").show();
     }
-    if (this.sttProviderName == "Streaming") {
-      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+    if (_SttProvider.sttProviderName == "Streaming") {
+      _SttProvider.sttProvider.loadSettings(SettingsHelper.settings[_SttProvider.sttProviderName]);
       $("#microphone_button").off("click");
       $("#microphone_button").hide();
     }
@@ -9407,26 +9456,28 @@ const _SttProvider = class _SttProvider {
     }
   }
   static onSttLanguageChange(language) {
-    SettingsHelper.settings[this.sttProviderName].language = language;
-    this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+    SettingsHelper.settings[_SttProvider.sttProviderName].language = language;
+    _SttProvider.sttProvider.loadSettings(SettingsHelper.settings[_SttProvider.sttProviderName]);
     saveSettingsDebounced();
   }
   static onSttProviderSettingsInput() {
-    this.sttProvider.onSettingsChange();
-    SettingsHelper.settings[this.sttProviderName] = this.sttProvider.settings;
+    _SttProvider.sttProvider.onSettingsChange();
+    SettingsHelper.settings[_SttProvider.sttProviderName] = _SttProvider.sttProvider.settings;
     saveSettingsDebounced();
-    console.info(`Saved settings ${this.sttProviderName} ${JSON.stringify(this.sttProvider.settings)}`);
+    console.info(`Saved settings ${_SttProvider.sttProviderName} ${JSON.stringify(_SttProvider.sttProvider.settings)}`);
   }
 };
-__publicField(_SttProvider, "_sttProviderName", "None");
-__publicField(_SttProvider, "sttProvider");
+__publicField(_SttProvider, "inner", reactive({
+  sttProviderName: "None",
+  sttProvider: null
+}));
 let SttProvider = _SttProvider;
-class ModuleWorker {
+const _ModuleWorker = class _ModuleWorker {
   static async moduleWorker() {
     if (SttProvider.sttProviderName != "Streaming") return;
-    if (this.inApiCall) return;
+    if (_ModuleWorker.inApiCall) return;
     try {
-      this.inApiCall = true;
+      _ModuleWorker.inApiCall = true;
       const userMessageOriginal = await SttProvider.sttProvider.getUserMessage();
       let userMessageFormatted = userMessageOriginal.trim();
       if (userMessageFormatted.length > 0) {
@@ -9481,11 +9532,12 @@ class ModuleWorker {
     } catch (error) {
       console.debug(error);
     } finally {
-      this.inApiCall = false;
+      _ModuleWorker.inApiCall = false;
     }
   }
-}
-__publicField(ModuleWorker, "inApiCall");
+};
+__publicField(_ModuleWorker, "inApiCall");
+let ModuleWorker = _ModuleWorker;
 class KeyboardHelper {
   static keyboardEventToKeyCombo(event) {
     return {
@@ -9550,31 +9602,32 @@ __publicField(KeyboardHelper, "LINUX_LABELS", {
   shift: "Shift",
   meta: "Meta"
 });
-class PushToTalkHelper {
+const _PushToTalkHelper = class _PushToTalkHelper {
   static isPushToTalkEnabled() {
     return SettingsHelper.settings.ptt !== null && SttProvider.sttProviderName !== "Streaming" && SttProvider.sttProviderName !== "None";
   }
   static processPushToTalkStart(event) {
-    if (!this.isPushToTalkEnabled()) return;
+    if (!_PushToTalkHelper.isPushToTalkEnabled()) return;
     const key = SettingsHelper.settings.ptt;
     if (KeyboardHelper.isKeyComboMatch(key, event) && !event.repeat) {
       console.debug(DEBUG_PREFIX + "Push-to-talk key pressed");
-      this.lastPressTime = Date.now();
+      _PushToTalkHelper.lastPressTime = Date.now();
       $("#microphone_button").trigger("click");
     }
   }
   static processPushToTalkEnd(event) {
-    if (!this.isPushToTalkEnabled()) return;
+    if (!_PushToTalkHelper.isPushToTalkEnabled()) return;
     const key = SettingsHelper.settings.ptt;
     if (key.code === event.code) {
       console.debug(DEBUG_PREFIX + "Push-to-talk key released");
-      if (Date.now() - this.lastPressTime > 500 && MediaRecorderHelper.audioRecording) {
+      if (Date.now() - _PushToTalkHelper.lastPressTime > 500 && MediaRecorderHelper.audioRecording) {
         $("#microphone_button").trigger("click");
       }
     }
   }
-}
-__publicField(PushToTalkHelper, "lastPressTime", 0);
+};
+__publicField(_PushToTalkHelper, "lastPressTime", 0);
+let PushToTalkHelper = _PushToTalkHelper;
 const UPDATE_INTERVAL = 100;
 let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttProviderSettingsForm_dec = [decorator], _ptt_dec = [decorator], _a) {
   constructor() {
@@ -9726,13 +9779,12 @@ const _hoisted_1 = { class: "inline-drawer" };
 const _hoisted_2 = { class: "inline-drawer-content" };
 const _hoisted_3 = ["value"];
 const _hoisted_4 = { key: 0 };
-const _hoisted_5 = { key: 1 };
-const _hoisted_6 = {
-  key: 2,
+const _hoisted_5 = {
+  key: 1,
   title: "Automatically start and stop recording when you start and stop speaking."
 };
-const _hoisted_7 = { class: "checkbox_label" };
-const _hoisted_8 = ["innerHTML"];
+const _hoisted_6 = { class: "checkbox_label" };
+const _hoisted_7 = ["innerHTML"];
 function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
   return openBlock(), createElementBlock("div", _hoisted_1, [
     _cache[12] || (_cache[12] = createBaseVNode("div", { class: "inline-drawer-toggle inline-drawer-header" }, [
@@ -9762,28 +9814,29 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
           [vModelSelect, _ctx.language]
         ])
       ])) : createCommentVNode("", true),
-      _ctx.isShowPttHotkeySelector ? (openBlock(), createElementBlock("div", _hoisted_5, [
+      withDirectives(createBaseVNode("div", null, [
         _cache[8] || (_cache[8] = createBaseVNode("span", null, "Recording Hotkey", -1)),
         _cache[9] || (_cache[9] = createBaseVNode("i", {
           title: "Press the designated keystroke to start the recording. Press again to stop. Only works if a browser tab is in focus.",
           class: "fa-solid fa-info-circle opacity50p"
         }, null, -1)),
         createBaseVNode("input", {
-          readonly: "",
           type: "text",
+          readonly: "",
           class: "text_pole",
           placeholder: "Click to set push-to-talk key",
           ref: "ptt",
           onFocus: _cache[2] || (_cache[2] = (...args) => _ctx.onPttFocus && _ctx.onPttFocus(...args)),
           onBlur: _cache[3] || (_cache[3] = (...args) => _ctx.onPttBlur && _ctx.onPttBlur(...args))
         }, null, 544)
-      ])) : createCommentVNode("", true),
-      _ctx.isShowVoiceActivationCheckbox ? (openBlock(), createElementBlock("div", _hoisted_6, [
-        createBaseVNode("label", _hoisted_7, [
+      ], 512), [
+        [vShow, _ctx.isShowPttHotkeySelector]
+      ]),
+      _ctx.isShowVoiceActivationCheckbox ? (openBlock(), createElementBlock("div", _hoisted_5, [
+        createBaseVNode("label", _hoisted_6, [
           withDirectives(createBaseVNode("input", {
             type: "checkbox",
-            "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => _ctx.voiceActivationEnabled = $event),
-            name: "speech_recognition_voice_activation_enabled"
+            "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => _ctx.voiceActivationEnabled = $event)
           }, null, 512), [
             [vModelCheckbox, _ctx.voiceActivationEnabled]
           ]),
@@ -9795,7 +9848,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         ref: "sttProviderSettingsForm",
         class: "inline-drawer-content",
         innerHTML: _ctx.sttProviderSettingsFormInnerHtml
-      }, null, 8, _hoisted_8)
+      }, null, 8, _hoisted_7)
     ])
   ]);
 }

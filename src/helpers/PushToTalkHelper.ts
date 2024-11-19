@@ -16,7 +16,7 @@ export class PushToTalkHelper {
 
     public static processPushToTalkStart(event: KeyboardEvent) {
         // Push-to-talk not enabled
-        if (!this.isPushToTalkEnabled()) return;
+        if (!PushToTalkHelper.isPushToTalkEnabled()) return;
 
 
         const key = SettingsHelper.settings.ptt;
@@ -24,15 +24,14 @@ export class PushToTalkHelper {
         // Key combo match - toggle recording
         if (KeyboardHelper.isKeyComboMatch(key, event) && !event.repeat) {
             console.debug(DEBUG_PREFIX + 'Push-to-talk key pressed');
-            this.lastPressTime = Date.now();
+            PushToTalkHelper.lastPressTime = Date.now();
             $('#microphone_button').trigger('click');
         }
     }
 
     public static processPushToTalkEnd(event: KeyboardEvent) {
-        if (!this.isPushToTalkEnabled()) return;
+        if (!PushToTalkHelper.isPushToTalkEnabled()) return;
 
-        /** @type {KeyCombo} */
         const key = SettingsHelper.settings.ptt;
 
         // Key combo match (without modifier keys)
@@ -40,7 +39,7 @@ export class PushToTalkHelper {
             console.debug(DEBUG_PREFIX + 'Push-to-talk key released');
 
             // If the key was held for more than 500ms and still recording, stop recording
-            if (Date.now() - this.lastPressTime > 500 && MediaRecorderHelper.audioRecording) {
+            if (Date.now() - PushToTalkHelper.lastPressTime > 500 && MediaRecorderHelper.audioRecording) {
                 $('#microphone_button').trigger('click');
             }
         }

@@ -20,7 +20,7 @@ class WavePCM {
         this.bytesPerSample = this.bitDepth / 8;
     }
 
-    record(buffers) {
+    record(buffers: number[][]) {
         this.numberOfChannels = this.numberOfChannels || buffers.length;
         const bufferLength = buffers[0].length;
         const reducedData = new Uint8Array(bufferLength * this.numberOfChannels * this.bytesPerSample);

@@ -20,7 +20,7 @@ export class WhisperOpenAISttProvider implements ISttProvider {
         // Used when provider settings are updated from UI
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         // Populate Provider UI given input settings
         if (Object.keys(settings).length == 0) {
             console.debug(DEBUG_PREFIX + 'Using default Whisper (OpenAI) STT extension settings');
@@ -31,7 +31,7 @@ export class WhisperOpenAISttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to STT extension: ${key}`;
             }
@@ -40,7 +40,7 @@ export class WhisperOpenAISttProvider implements ISttProvider {
         console.debug(DEBUG_PREFIX + 'Whisper (OpenAI) STT settings loaded');
     }
 
-    async processAudio(audioBlob) {
+    async processAudio(audioBlob: Blob) {
         const requestData = new FormData();
         requestData.append('avatar', audioBlob, 'record.wav');
 
@@ -53,7 +53,7 @@ export class WhisperOpenAISttProvider implements ISttProvider {
 
         // It's not a JSON, let fetch set the content type
         const headers = getRequestHeaders();
-        delete headers['Content-Type'];
+        delete (<any>headers)['Content-Type'];
 
         const apiResult = await fetch('/api/openai/transcribe-audio', {
             method: 'POST',

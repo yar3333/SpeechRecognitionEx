@@ -2,7 +2,7 @@ import { DEBUG_PREFIX, URL_TO_EXTENSION } from "@/constants";
 
 export class WaveHelper {
 
-    public static async convertAudioChunksToPcmArray(audioChunks: Blob[]): Promise<{ sampleRate: number, pcmArrays: number[][] }> {
+    public static async convertAudioChunksToPcmArray(audioChunks: Blob[]): Promise<{ sampleRate: number, pcmArrays: Float32Array[] }> {
         console.debug(DEBUG_PREFIX + 'data available after MediaRecorder.stop() called: ', audioChunks.length, ' chunks');
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
         const arrayBuffer = await audioBlob.arrayBuffer();
@@ -23,7 +23,7 @@ export class WaveHelper {
         };
     }
 
-    public static convertPcmArraysToWavBlob(sampleRate: number, pcmArrays: number[][]): Promise<Blob> {
+    public static convertPcmArraysToWavBlob(sampleRate: number, pcmArrays: Float32Array[]): Promise<Blob> {
         return new Promise((resolve) => {
             var worker = new Worker(URL_TO_EXTENSION + '/dist/wave-worker.js');
 

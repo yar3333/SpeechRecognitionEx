@@ -22,7 +22,7 @@ export class KoboldCppSttProvider implements ISttProvider {
         // Used when provider settings are updated from UI
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         // Populate Provider UI given input settings
         if (Object.keys(settings).length == 0) {
             console.debug(DEBUG_PREFIX + 'Using default KoboldCpp STT extension settings');
@@ -33,7 +33,7 @@ export class KoboldCppSttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to STT extension: ${key}`;
             }
@@ -42,7 +42,7 @@ export class KoboldCppSttProvider implements ISttProvider {
         console.debug(DEBUG_PREFIX + 'KoboldCpp STT settings loaded');
     }
 
-    async processAudio(audioBlob) {
+    async processAudio(audioBlob: Blob) {
         const server = textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP];
 
         if (!server) {
@@ -57,7 +57,7 @@ export class KoboldCppSttProvider implements ISttProvider {
 
         // It's not a JSON, let fetch set the content type
         const headers = getRequestHeaders();
-        delete headers['Content-Type'];
+        delete (<any>headers)['Content-Type'];
 
         const apiResult = await fetch('/api/backends/kobold/transcribe-audio', {
             method: 'POST',

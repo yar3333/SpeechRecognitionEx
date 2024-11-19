@@ -1,4 +1,5 @@
 import { BrowserSttProvider } from "./stt-providers/BrowserSttProvider";
+import type { ISttProvider } from "./stt-providers/ISttProvider";
 import { KoboldCppSttProvider } from "./stt-providers/KoboldCppSttProvider";
 import { StreamingSttProvider } from "./stt-providers/StreamingSttProvider";
 import { VoskSttProvider } from "./stt-providers/VoskSttProvider";
@@ -11,7 +12,7 @@ export const DEBUG_PREFIX = '<Speech Recognition Ex module> ';
 export const URL_TO_EXTENSION = '/scripts/extensions/third-party/SpeechRecognitionEx';
 
 export const STT_PROVIDERS = {
-    'None': null,
+    'None': <ISttProvider>null,
     'Browser': BrowserSttProvider,
     'KoboldCpp': KoboldCppSttProvider,
     'Whisper (Extras)': WhisperExtrasSttProvider,

@@ -74,7 +74,7 @@
                     <option value="cy">Welsh</option>
                 </select>
             </div>
-            <div v-if="isShowPttHotkeySelector">
+            <div v-show="isShowPttHotkeySelector">
                 <span>Recording Hotkey</span>
                 <i title="Press the designated keystroke to start the recording. Press again to stop. Only works if a browser tab is in focus."
                    class="fa-solid fa-info-circle opacity50p"></i>

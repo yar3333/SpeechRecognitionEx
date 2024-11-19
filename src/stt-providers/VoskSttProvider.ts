@@ -20,7 +20,7 @@ export class VoskSttProvider implements ISttProvider {
         // Used when provider settings are updated from UI
     }
 
-    loadSettings(settings) {
+    loadSettings(settings: any) {
         // Populate Provider UI given input settings
         if (Object.keys(settings).length == 0) {
             console.debug(DEBUG_PREFIX + 'Using default vosk STT extension settings');
@@ -31,7 +31,7 @@ export class VoskSttProvider implements ISttProvider {
 
         for (const key in settings) {
             if (key in this.settings) {
-                this.settings[key] = settings[key];
+                (<any>this.settings)[key] = settings[key];
             } else {
                 throw `Invalid setting passed to STT extension: ${key}`;
             }
@@ -40,7 +40,7 @@ export class VoskSttProvider implements ISttProvider {
         console.debug(DEBUG_PREFIX + 'Vosk STT settings loaded');
     }
 
-    async processAudio(audioblob) {
+    async processAudio(audioblob: Blob) {
         var requestData = new FormData();
         requestData.append('AudioFile', audioblob, 'record.wav');
         requestData.append('language', this.settings.language);
