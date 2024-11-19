@@ -6,7 +6,10 @@ Based on original official plugin [Extension-Speech-Recognition](https://github.
 Major changes compared to original extension:
 
   * high-quality voice activity detector
+  * speech end detection: waiting one second more to detect that the user is still speaking
   * commands support also cyrillic languages
+  * under the hood: code refactoring to use Vue 3 + Typescript
+  * bugfixes
 
 ## Installation
 
