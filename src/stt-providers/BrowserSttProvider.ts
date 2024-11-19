@@ -242,4 +242,6 @@ export class BrowserSttProvider implements ISttProvider {
 
         console.debug(DEBUG_PREFIX + 'Browser STT settings loaded');
     }
+
+    processAudio(wavBlob: Blob): Promise<string> { throw new Error("`processAudio` is unsupported by BrowserSttProvider.") }
 }

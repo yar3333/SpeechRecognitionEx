@@ -87,7 +87,6 @@ export class StreamingSttProvider implements ISttProvider {
         $('#speech_recognition_streaming_trigger_words_enabled').prop('checked', this.settings.triggerWordsEnabled);
         $('#speech_recognition_trigger_words_included').prop('checked', this.settings.triggerWordsIncluded);
         $('#speech_recognition_streaming_debug').prop('checked', this.settings.debug);
-        $('#speech_recognition_language').val(this.settings.language);
 
         console.debug(DEBUG_PREFIX + 'streaming STT settings loaded');
     }
@@ -125,4 +124,6 @@ export class StreamingSttProvider implements ISttProvider {
             return data.transcript;
         }
     }
+
+    processAudio(wavBlob: Blob): Promise<string> { throw new Error("`processAudio` is unsupported by StreamingSttProvider.") }
 }

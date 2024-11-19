@@ -39,7 +39,6 @@ export class KoboldCppSttProvider implements ISttProvider {
             }
         }
 
-        $('#speech_recognition_language').val(this.settings.language);
         console.debug(DEBUG_PREFIX + 'KoboldCpp STT settings loaded');
     }
 

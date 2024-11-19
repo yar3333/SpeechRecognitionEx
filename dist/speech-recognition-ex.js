@@ -46,11 +46,11 @@ var __privateIn = (member, obj) => Object(obj) !== obj ? __typeError('Cannot use
 var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
-var _App_decorators, _init, _a, _b;
-import { getRequestHeaders, saveSettingsDebounced, sendMessageAsUser } from "../../../../../script.js";
-import { getApiUrl, doExtrasFetch, modules, extension_settings, getContext, ModuleWorkerWrapper } from "../../../../extensions.js";
-import { getBase64Async } from "../../../../utils.js";
+var _ptt_dec, _sttProviderSettingsForm_dec, _a, _App_decorators, _init, _b;
+import { modules, getApiUrl, doExtrasFetch, extension_settings, getContext, ModuleWorkerWrapper } from "../../../../extensions.js";
 import { textgenerationwebui_settings, textgen_types } from "../../../../textgen-settings.js";
+import { getRequestHeaders, sendMessageAsUser, saveSettingsDebounced } from "../../../../../script.js";
+import { getBase64Async } from "../../../../utils.js";
 var define_process_env_default$4 = {};
 /**
 * @vue/shared v3.5.13
@@ -84,6 +84,7 @@ const hasOwn = (val, key) => hasOwnProperty$1.call(val, key);
 const isArray = Array.isArray;
 const isMap = (val) => toTypeString(val) === "[object Map]";
 const isSet = (val) => toTypeString(val) === "[object Set]";
+const isDate = (val) => toTypeString(val) === "[object Date]";
 const isFunction = (val) => typeof val === "function";
 const isString = (val) => typeof val === "string";
 const isSymbol = (val) => typeof val === "symbol";
@@ -214,6 +215,93 @@ const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
 function includeBooleanAttr(value) {
   return !!value || value === "";
 }
+function looseCompareArrays(a, b) {
+  if (a.length !== b.length) return false;
+  let equal = true;
+  for (let i = 0; equal && i < a.length; i++) {
+    equal = looseEqual(a[i], b[i]);
+  }
+  return equal;
+}
+function looseEqual(a, b) {
+  if (a === b) return true;
+  let aValidType = isDate(a);
+  let bValidType = isDate(b);
+  if (aValidType || bValidType) {
+    return aValidType && bValidType ? a.getTime() === b.getTime() : false;
+  }
+  aValidType = isSymbol(a);
+  bValidType = isSymbol(b);
+  if (aValidType || bValidType) {
+    return a === b;
+  }
+  aValidType = isArray(a);
+  bValidType = isArray(b);
+  if (aValidType || bValidType) {
+    return aValidType && bValidType ? looseCompareArrays(a, b) : false;
+  }
+  aValidType = isObject(a);
+  bValidType = isObject(b);
+  if (aValidType || bValidType) {
+    if (!aValidType || !bValidType) {
+      return false;
+    }
+    const aKeysCount = Object.keys(a).length;
+    const bKeysCount = Object.keys(b).length;
+    if (aKeysCount !== bKeysCount) {
+      return false;
+    }
+    for (const key in a) {
+      const aHasKey = a.hasOwnProperty(key);
+      const bHasKey = b.hasOwnProperty(key);
+      if (aHasKey && !bHasKey || !aHasKey && bHasKey || !looseEqual(a[key], b[key])) {
+        return false;
+      }
+    }
+  }
+  return String(a) === String(b);
+}
+function looseIndexOf(arr, val) {
+  return arr.findIndex((item) => looseEqual(item, val));
+}
+const isRef$1 = (val) => {
+  return !!(val && val["__v_isRef"] === true);
+};
+const toDisplayString = (val) => {
+  return isString(val) ? val : val == null ? "" : isArray(val) || isObject(val) && (val.toString === objectToString || !isFunction(val.toString)) ? isRef$1(val) ? toDisplayString(val.value) : JSON.stringify(val, replacer, 2) : String(val);
+};
+const replacer = (_key, val) => {
+  if (isRef$1(val)) {
+    return replacer(_key, val.value);
+  } else if (isMap(val)) {
+    return {
+      [`Map(${val.size})`]: [...val.entries()].reduce(
+        (entries, [key, val2], i) => {
+          entries[stringifySymbol(key, i) + " =>"] = val2;
+          return entries;
+        },
+        {}
+      )
+    };
+  } else if (isSet(val)) {
+    return {
+      [`Set(${val.size})`]: [...val.values()].map((v) => stringifySymbol(v))
+    };
+  } else if (isSymbol(val)) {
+    return stringifySymbol(val);
+  } else if (isObject(val) && !isArray(val) && !isPlainObject(val)) {
+    return String(val);
+  }
+  return val;
+};
+const stringifySymbol = (v, i = "") => {
+  var _a2;
+  return (
+    // Symbol.description in es2019+ so we need to cast here to pass
+    // the lib: es2016 check
+    isSymbol(v) ? `Symbol(${(_a2 = v.description) != null ? _a2 : i})` : v
+  );
+};
 var define_process_env_default$3 = {};
 function warn$2(msg, ...args) {
   console.warn(`[Vue warn] ${msg}`, ...args);
@@ -2452,6 +2540,37 @@ function validateDirectiveName(name) {
     warn$1("Do not use built-in directive ids as custom directive id: " + name);
   }
 }
+function withDirectives(vnode, directives) {
+  if (currentRenderingInstance === null) {
+    !!(define_process_env_default$2.NODE_ENV !== "production") && warn$1(`withDirectives can only be used inside render functions.`);
+    return vnode;
+  }
+  const instance = getComponentPublicInstance(currentRenderingInstance);
+  const bindings = vnode.dirs || (vnode.dirs = []);
+  for (let i = 0; i < directives.length; i++) {
+    let [dir, value, arg, modifiers = EMPTY_OBJ] = directives[i];
+    if (dir) {
+      if (isFunction(dir)) {
+        dir = {
+          mounted: dir,
+          updated: dir
+        };
+      }
+      if (dir.deep) {
+        traverse(value);
+      }
+      bindings.push({
+        dir,
+        instance,
+        value,
+        oldValue: void 0,
+        arg,
+        modifiers
+      });
+    }
+  }
+  return vnode;
+}
 function invokeDirectiveHook(vnode, prevVNode, instance, name) {
   const bindings = vnode.dirs;
   const oldBindings = prevVNode && prevVNode.dirs;
@@ -2695,6 +2814,53 @@ function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
 const NULL_DYNAMIC_COMPONENT = Symbol.for("v-ndc");
+function renderList(source, renderItem, cache, index) {
+  let ret;
+  const cached = cache;
+  const sourceIsArray = isArray(source);
+  if (sourceIsArray || isString(source)) {
+    const sourceIsReactiveArray = sourceIsArray && isReactive(source);
+    let needsWrap = false;
+    if (sourceIsReactiveArray) {
+      needsWrap = !isShallow(source);
+      source = shallowReadArray(source);
+    }
+    ret = new Array(source.length);
+    for (let i = 0, l = source.length; i < l; i++) {
+      ret[i] = renderItem(
+        needsWrap ? toReactive(source[i]) : source[i],
+        i,
+        void 0,
+        cached
+      );
+    }
+  } else if (typeof source === "number") {
+    if (!!(define_process_env_default$2.NODE_ENV !== "production") && !Number.isInteger(source)) {
+      warn$1(`The v-for range expect an integer value but got ${source}.`);
+    }
+    ret = new Array(source);
+    for (let i = 0; i < source; i++) {
+      ret[i] = renderItem(i + 1, i, void 0, cached);
+    }
+  } else if (isObject(source)) {
+    if (source[Symbol.iterator]) {
+      ret = Array.from(
+        source,
+        (item, i) => renderItem(item, i, void 0, cached)
+      );
+    } else {
+      const keys = Object.keys(source);
+      ret = new Array(keys.length);
+      for (let i = 0, l = keys.length; i < l; i++) {
+        const key = keys[i];
+        ret[i] = renderItem(source[key], key, i, cached);
+      }
+    }
+  } else {
+    ret = [];
+  }
+  return ret;
+}
 const getPublicInstance = (i) => {
   if (!i) return null;
   if (isStatefulComponent(i)) return getComponentPublicInstance(i);
@@ -2966,7 +3132,7 @@ function applyOptions(instance) {
     beforeUnmount,
     destroyed,
     unmounted,
-    render: render2,
+    render,
     renderTracked,
     renderTriggered,
     errorCaptured,
@@ -3120,8 +3286,8 @@ function applyOptions(instance) {
       instance.exposed = {};
     }
   }
-  if (render2 && instance.render === NOOP) {
-    instance.render = render2;
+  if (render && instance.render === NOOP) {
+    instance.render = render;
   }
   if (inheritAttrs != null) {
     instance.inheritAttrs = inheritAttrs;
@@ -3365,7 +3531,7 @@ function createAppContext() {
   };
 }
 let uid$1 = 0;
-function createAppAPI(render2, hydrate) {
+function createAppAPI(render, hydrate) {
   return function createApp2(rootComponent, rootProps = null) {
     if (!isFunction(rootComponent)) {
       rootComponent = extend({}, rootComponent);
@@ -3467,7 +3633,7 @@ function createAppAPI(render2, hydrate) {
           }
           if (!!(define_process_env_default$2.NODE_ENV !== "production")) {
             context.reload = () => {
-              render2(
+              render(
                 cloneVNode(vnode),
                 rootContainer2,
                 namespace
@@ -3477,7 +3643,7 @@ function createAppAPI(render2, hydrate) {
           if (isHydrate && hydrate) {
             hydrate(vnode, rootContainer2);
           } else {
-            render2(vnode, rootContainer2, namespace);
+            render(vnode, rootContainer2, namespace);
           }
           isMounted = true;
           app2._container = rootContainer2;
@@ -3509,7 +3675,7 @@ If you want to remount the same app, move your app creation logic into a factory
             app2._instance,
             16
           );
-          render2(null, app2._container);
+          render(null, app2._container);
           if (!!(define_process_env_default$2.NODE_ENV !== "production") || false) {
             app2._instance = null;
             devtoolsUnmountApp(app2);
@@ -5496,7 +5662,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     return teleportEnd ? hostNextSibling(teleportEnd) : el;
   };
   let isFlushing = false;
-  const render2 = (vnode, container, namespace) => {
+  const render = (vnode, container, namespace) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null, null, true);
@@ -5535,9 +5701,9 @@ function baseCreateRenderer(options, createHydrationFns) {
   let hydrate;
   let hydrateNode;
   return {
-    render: render2,
+    render,
     hydrate,
-    createApp: createAppAPI(render2, hydrate)
+    createApp: createAppAPI(render, hydrate)
   };
 }
 function resolveChildrenNamespace({ type, props }, currentNamespace) {
@@ -5907,7 +6073,7 @@ function renderComponentRoot(instance) {
     slots,
     attrs,
     emit: emit2,
-    render: render2,
+    render,
     renderCache,
     props,
     data,
@@ -5935,7 +6101,7 @@ function renderComponentRoot(instance) {
         }
       }) : proxyToUse;
       result = normalizeVNode(
-        render2.call(
+        render.call(
           thisProxy,
           proxyToUse,
           renderCache,
@@ -5947,12 +6113,12 @@ function renderComponentRoot(instance) {
       );
       fallthroughAttrs = attrs;
     } else {
-      const render22 = Component2;
+      const render2 = Component2;
       if (!!(define_process_env_default$2.NODE_ENV !== "production") && attrs === props) {
         markAttrsAccessed();
       }
       result = normalizeVNode(
-        render22.length > 1 ? render22(
+        render2.length > 1 ? render2(
           !!(define_process_env_default$2.NODE_ENV !== "production") ? shallowReadonly(props) : props,
           !!(define_process_env_default$2.NODE_ENV !== "production") ? {
             get attrs() {
@@ -5962,7 +6128,7 @@ function renderComponentRoot(instance) {
             slots,
             emit: emit2
           } : { attrs, slots, emit: emit2 }
-        ) : render22(
+        ) : render2(
           !!(define_process_env_default$2.NODE_ENV !== "production") ? shallowReadonly(props) : props,
           null
         )
@@ -6235,6 +6401,18 @@ function createElementBlock(type, props, children, patchFlag, dynamicProps, shap
     )
   );
 }
+function createBlock(type, props, children, patchFlag, dynamicProps) {
+  return setupBlock(
+    createVNode(
+      type,
+      props,
+      children,
+      patchFlag,
+      dynamicProps,
+      true
+    )
+  );
+}
 function isVNode(value) {
   return value ? value.__v_isVNode === true : false;
 }
@@ -6456,6 +6634,9 @@ function createStaticVNode(content, numberOfNodes) {
   const vnode = createVNode(Static, null, content);
   vnode.staticCount = numberOfNodes;
   return vnode;
+}
+function createCommentVNode(text = "", asBlock = false) {
+  return asBlock ? (openBlock(), createBlock(Comment, null, text)) : createVNode(Comment, null, text);
 }
 function normalizeVNode(child) {
   if (child == null || typeof child === "boolean") {
@@ -6733,13 +6914,13 @@ function setupStatefulComponent(instance, isSSR) {
   if (!!(define_process_env_default$2.NODE_ENV !== "production")) {
     exposePropsOnRenderContext(instance);
   }
-  const { setup: setup2 } = Component2;
-  if (setup2) {
+  const { setup } = Component2;
+  if (setup) {
     pauseTracking();
-    const setupContext = instance.setupContext = setup2.length > 1 ? createSetupContext(instance) : null;
+    const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
     const reset = setCurrentInstance(instance);
     const setupResult = callWithErrorHandling(
-      setup2,
+      setup,
       instance,
       0,
       [
@@ -7583,6 +7764,138 @@ function shouldSetAsProp(el, key, value, isSVG) {
   }
   return key in el;
 }
+const getModelAssigner = (vnode) => {
+  const fn = vnode.props["onUpdate:modelValue"] || false;
+  return isArray(fn) ? (value) => invokeArrayFns(fn, value) : fn;
+};
+const assignKey = Symbol("_assign");
+const vModelCheckbox = {
+  // #4096 array checkboxes need to be deep traversed
+  deep: true,
+  created(el, _, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    addEventListener(el, "change", () => {
+      const modelValue = el._modelValue;
+      const elementValue = getValue(el);
+      const checked = el.checked;
+      const assign = el[assignKey];
+      if (isArray(modelValue)) {
+        const index = looseIndexOf(modelValue, elementValue);
+        const found = index !== -1;
+        if (checked && !found) {
+          assign(modelValue.concat(elementValue));
+        } else if (!checked && found) {
+          const filtered = [...modelValue];
+          filtered.splice(index, 1);
+          assign(filtered);
+        }
+      } else if (isSet(modelValue)) {
+        const cloned = new Set(modelValue);
+        if (checked) {
+          cloned.add(elementValue);
+        } else {
+          cloned.delete(elementValue);
+        }
+        assign(cloned);
+      } else {
+        assign(getCheckboxValue(el, checked));
+      }
+    });
+  },
+  // set initial checked on mount to wait for true-value/false-value
+  mounted: setChecked,
+  beforeUpdate(el, binding, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    setChecked(el, binding, vnode);
+  }
+};
+function setChecked(el, { value, oldValue }, vnode) {
+  el._modelValue = value;
+  let checked;
+  if (isArray(value)) {
+    checked = looseIndexOf(value, vnode.props.value) > -1;
+  } else if (isSet(value)) {
+    checked = value.has(vnode.props.value);
+  } else {
+    if (value === oldValue) return;
+    checked = looseEqual(value, getCheckboxValue(el, true));
+  }
+  if (el.checked !== checked) {
+    el.checked = checked;
+  }
+}
+const vModelSelect = {
+  // <select multiple> value need to be deep traversed
+  deep: true,
+  created(el, { value, modifiers: { number } }, vnode) {
+    const isSetModel = isSet(value);
+    addEventListener(el, "change", () => {
+      const selectedVal = Array.prototype.filter.call(el.options, (o) => o.selected).map(
+        (o) => number ? looseToNumber(getValue(o)) : getValue(o)
+      );
+      el[assignKey](
+        el.multiple ? isSetModel ? new Set(selectedVal) : selectedVal : selectedVal[0]
+      );
+      el._assigning = true;
+      nextTick(() => {
+        el._assigning = false;
+      });
+    });
+    el[assignKey] = getModelAssigner(vnode);
+  },
+  // set value in mounted & updated because <select> relies on its children
+  // <option>s.
+  mounted(el, { value }) {
+    setSelected(el, value);
+  },
+  beforeUpdate(el, _binding, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+  },
+  updated(el, { value }) {
+    if (!el._assigning) {
+      setSelected(el, value);
+    }
+  }
+};
+function setSelected(el, value) {
+  const isMultiple = el.multiple;
+  const isArrayValue = isArray(value);
+  if (isMultiple && !isArrayValue && !isSet(value)) {
+    !!(define_process_env_default$1.NODE_ENV !== "production") && warn(
+      `<select multiple v-model> expects an Array or Set value for its binding, but got ${Object.prototype.toString.call(value).slice(8, -1)}.`
+    );
+    return;
+  }
+  for (let i = 0, l = el.options.length; i < l; i++) {
+    const option = el.options[i];
+    const optionValue = getValue(option);
+    if (isMultiple) {
+      if (isArrayValue) {
+        const optionType = typeof optionValue;
+        if (optionType === "string" || optionType === "number") {
+          option.selected = value.some((v) => String(v) === String(optionValue));
+        } else {
+          option.selected = looseIndexOf(value, optionValue) > -1;
+        }
+      } else {
+        option.selected = value.has(optionValue);
+      }
+    } else if (looseEqual(getValue(option), value)) {
+      if (el.selectedIndex !== i) el.selectedIndex = i;
+      return;
+    }
+  }
+  if (!isMultiple && el.selectedIndex !== -1) {
+    el.selectedIndex = -1;
+  }
+}
+function getValue(el) {
+  return "_value" in el ? el._value : el.value;
+}
+function getCheckboxValue(el, checked) {
+  const key = checked ? "_trueValue" : "_falseValue";
+  return key in el ? el[key] : checked;
+}
 const rendererOptions = /* @__PURE__ */ extend({ patchProp }, nodeOps);
 let renderer;
 function ensureRenderer() {
@@ -7702,6 +8015,18 @@ function compatibleClassDecorator(deco) {
     }
   };
 }
+function compatibleMemberDecorator(deco) {
+  return function(arg, ctx) {
+    var _a2;
+    if (typeof ctx === "object") {
+      const proto = (_a2 = Compatible.fakePrototype) !== null && _a2 !== void 0 ? _a2 : Compatible.fakePrototype = {};
+      proto[ctx.name] = arg;
+      return deco(proto, ctx.name);
+    } else {
+      return deco(arg, ctx);
+    }
+  };
+}
 const SlotSymbol = Symbol("vue-facing-decorator-slot");
 class Slot {
   constructor(master) {
@@ -7806,6 +8131,20 @@ function getValidNames(obj, filter) {
   const descriptors = Object.getOwnPropertyDescriptors(obj);
   return Object.keys(descriptors).filter((name) => filter(descriptors[name], name));
 }
+function optionNullableMemberDecorator(handler) {
+  function decorator2(optionOrProto, name) {
+    if (name) {
+      compatibleMemberDecorator(function(proto, name2) {
+        handler(proto, name2);
+      })(optionOrProto, name);
+    } else {
+      return compatibleMemberDecorator(function(proto, name2) {
+        handler(proto, name2, optionOrProto);
+      });
+    }
+  }
+  return decorator2;
+}
 function getProviderFunction(provide2) {
   if (typeof provide2 === "function")
     return provide2;
@@ -7820,7 +8159,7 @@ function build$c(cons, optionBuilder) {
   if (!map2 || map2.size === 0) {
     return;
   }
-  const setup2 = function(props, ctx) {
+  const setup = function(props, ctx) {
     const setupData = {};
     let promises = null;
     for (const name of map2.keys()) {
@@ -7842,7 +8181,7 @@ function build$c(cons, optionBuilder) {
       return setupData;
     }
   };
-  optionBuilder.setup = setup2;
+  optionBuilder.setup = setup;
 }
 function build$b(cons, optionBuilder) {
   var _a2;
@@ -7945,6 +8284,11 @@ function applyAccessors(optionBuilder, dataFunc) {
     });
   });
 }
+const decorator = optionNullableMemberDecorator(function(proto, name, key) {
+  const slot = obtainSlot(proto);
+  const map2 = slot.obtainMap("ref");
+  map2.set(name, typeof key === "undefined" ? null : key);
+});
 function build$8(cons, optionBuilder) {
   const slot = obtainSlot(cons.prototype);
   const names = slot.getMap("ref");
@@ -8181,7 +8525,7 @@ function buildComponent(cons, arg, extend2) {
     const newSetup = (_b2 = arg.setup) !== null && _b2 !== void 0 ? _b2 : function() {
       return {};
     };
-    const setup2 = function(props, ctx) {
+    const setup = function(props, ctx) {
       const newRet = newSetup(props, ctx);
       const oldRet = oldSetup(props, ctx);
       if (oldRet instanceof Promise || newRet instanceof Promise) {
@@ -8192,7 +8536,7 @@ function buildComponent(cons, arg, extend2) {
         return Object.assign({}, newRet, oldRet);
       }
     };
-    option.setup = setup2;
+    option.setup = setup;
   }
   const oldProvider = getProviderFunction(option.provide);
   const newProvider = getProviderFunction(arg.provide);
@@ -8275,242 +8619,27 @@ const Base = class {
   }
 };
 const Vue = Base;
-const DEBUG_PREFIX$7 = "<Speech Recognition module (Vosk)> ";
-class VoskSttProvider {
-  constructor() {
-    //########//
-    // Config //
-    //########//
-    __publicField(this, "settings");
-    __publicField(this, "defaultSettings", {
-      language: ""
-    });
+class UiHelper {
+  /**
+   * Set the microphone icon as active. Must be called when recording starts.
+   * @param {JQuery} micButton - The jQuery object of the microphone button.
+   */
+  static activateMicIcon(micButton) {
+    micButton.toggleClass("fa-microphone fa-microphone-slash");
+    micButton.prop("title", "Click to end and transcribe");
   }
-  get settingsHtml() {
-    let html = "";
-    return html;
-  }
-  onSettingsChange() {
-  }
-  loadSettings(settings) {
-    if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$7 + "Using default vosk STT extension settings");
-    }
-    this.settings = this.defaultSettings;
-    for (const key in settings) {
-      if (key in this.settings) {
-        this.settings[key] = settings[key];
-      } else {
-        throw `Invalid setting passed to STT extension: ${key}`;
-      }
-    }
-    $("#speech_recognition_language").val(this.settings.language);
-    console.debug(DEBUG_PREFIX$7 + "Vosk STT settings loaded");
-  }
-  async processAudio(audioblob) {
-    var requestData = new FormData();
-    requestData.append("AudioFile", audioblob, "record.wav");
-    requestData.append("language", this.settings.language);
-    const url = new URL(getApiUrl());
-    url.pathname = "/api/speech-recognition/vosk/process-audio";
-    const apiResult = await doExtrasFetch(url, {
-      method: "POST",
-      body: requestData
-    });
-    if (!apiResult.ok) {
-      window.toastr.error(apiResult.statusText, "STT Generation Failed  (Vosk)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
-    }
-    const result = await apiResult.json();
-    return result.transcript;
+  /**
+   * Set the microphone icon as inactive. Must be called when recording ends.
+   * @param {JQuery} micButton - The jQuery object of the microphone button.
+   */
+  static deactivateMicIcon(micButton) {
+    micButton.toggleClass("fa-microphone fa-microphone-slash");
+    micButton.prop("title", "Click to speak");
   }
 }
-const DEBUG_PREFIX$6 = "<Speech Recognition module (Whisper Extras)> ";
-class WhisperExtrasSttProvider {
-  constructor() {
-    //########//
-    // Config //
-    //########//
-    __publicField(this, "settings");
-    __publicField(this, "defaultSettings", {
-      //model_path: "",
-      language: ""
-    });
-  }
-  get settingsHtml() {
-    let html = "";
-    return html;
-  }
-  onSettingsChange() {
-  }
-  loadSettings(settings) {
-    if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$6 + "Using default Whisper STT extension settings");
-    }
-    this.settings = this.defaultSettings;
-    for (const key in settings) {
-      if (key in this.settings) {
-        this.settings[key] = settings[key];
-      } else {
-        throw `Invalid setting passed to STT extension: ${key}`;
-      }
-    }
-    $("#speech_recognition_language").val(this.settings.language);
-    console.debug(DEBUG_PREFIX$6 + "Whisper (Extras) STT settings loaded");
-  }
-  async processAudio(audioblob) {
-    var requestData = new FormData();
-    requestData.append("AudioFile", audioblob, "record.wav");
-    requestData.append("language", this.settings.language);
-    const url = new URL(getApiUrl());
-    url.pathname = "/api/speech-recognition/whisper/process-audio";
-    const apiResult = await doExtrasFetch(url, {
-      method: "POST",
-      body: requestData
-    });
-    if (!apiResult.ok) {
-      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper Extras)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
-    }
-    const result = await apiResult.json();
-    return result.transcript;
-  }
-}
-const DEBUG_PREFIX$5 = "<Speech Recognition module (Whisper OpenAI)> ";
-class WhisperOpenAISttProvider {
-  constructor() {
-    __publicField(this, "settings");
-    __publicField(this, "defaultSettings", {
-      language: ""
-    });
-  }
-  get settingsHtml() {
-    let html = "";
-    return html;
-  }
-  onSettingsChange() {
-  }
-  loadSettings(settings) {
-    if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$5 + "Using default Whisper (OpenAI) STT extension settings");
-    }
-    this.settings = this.defaultSettings;
-    for (const key in settings) {
-      if (key in this.settings) {
-        this.settings[key] = settings[key];
-      } else {
-        throw `Invalid setting passed to STT extension: ${key}`;
-      }
-    }
-    $("#speech_recognition_language").val(this.settings.language);
-    console.debug(DEBUG_PREFIX$5 + "Whisper (OpenAI) STT settings loaded");
-  }
-  async processAudio(audioBlob) {
-    const requestData = new FormData();
-    requestData.append("avatar", audioBlob, "record.wav");
-    requestData.append("model", "whisper-1");
-    if (this.settings.language) {
-      requestData.append("language", this.settings.language);
-    }
-    const headers = getRequestHeaders();
-    delete headers["Content-Type"];
-    const apiResult = await fetch("/api/openai/transcribe-audio", {
-      method: "POST",
-      headers,
-      body: requestData
-    });
-    if (!apiResult.ok) {
-      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper OpenAI)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
-    }
-    const result = await apiResult.json();
-    return result.text;
-  }
-}
-const DEBUG_PREFIX$4 = "<Speech Recognition module (Whisper Local)> ";
-class WhisperLocalSttProvider {
-  constructor() {
-    __publicField(this, "settings");
-    __publicField(this, "defaultSettings", {
-      language: "",
-      model: "Xenova/whisper-base.en"
-    });
-  }
-  get settingsHtml() {
-    let html = `
-        <span>Whisper Model</span> </br>
-        <select id="whisper_local_model">
-            <optgroup label="Multilingual">
-                <option value="Xenova/whisper-tiny">whisper-tiny</option>
-                <option value="Xenova/whisper-base">whisper-base</option>
-                <option value="Xenova/whisper-small">whisper-small</option>
-                <option value="Xenova/whisper-medium">whisper-medium</option>
-                <option value="Xenova/whisper-large">whisper-large</option>
-                <option value="Xenova/whisper-large-v2">whisper-large-v2</option>
-                <option value="Xenova/whisper-large-v3">whisper-large-v3</option>
-            </optgroup>
-            <optgroup label="English">
-                <option value="Xenova/whisper-tiny.en">whisper-tiny.en</option>
-                <option value="Xenova/whisper-base.en">whisper-base.en</option>
-                <option value="Xenova/whisper-small.en">whisper-small.en</option>
-                <option value="Xenova/whisper-medium.en">whisper-medium.en</option>
-            </optgroup>
-        </select>
-        <div><i>Loading model for the first time may take a while!</i></div>`;
-    return html;
-  }
-  onSettingsChange() {
-    this.settings.model = $("#whisper_local_model").val();
-    console.debug(DEBUG_PREFIX$4 + " Updated settings: ", this.settings);
-    this.loadSettings(this.settings);
-  }
-  loadSettings(settings) {
-    if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$4 + "Using default Whisper (Local) STT extension settings");
-    }
-    this.settings = this.defaultSettings;
-    for (const key in settings) {
-      if (key in this.settings) {
-        this.settings[key] = settings[key];
-      } else {
-        throw `Invalid setting passed to STT extension: ${key}`;
-      }
-    }
-    $("#speech_recognition_language").val(this.settings.language);
-    $("#whisper_local_model").val(this.settings.model);
-    console.debug(DEBUG_PREFIX$4 + "Whisper (Local) STT settings loaded");
-  }
-  async processAudio(audioBlob) {
-    const audio = await getBase64Async(audioBlob);
-    const lang = this.settings.language || null;
-    const model = this.settings.model || "Xenova/whisper-base.en";
-    const apiResult = await fetch("/api/speech/recognize", {
-      method: "POST",
-      headers: getRequestHeaders(),
-      body: JSON.stringify({ audio, lang, model })
-    });
-    if (!apiResult.ok) {
-      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper Local)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
-    }
-    const result = await apiResult.json();
-    return result.text;
-  }
-}
-const DEBUG_PREFIX$3 = "<Speech Recognition module (Browser)> ";
-function activateMicIcon(micButton) {
-  micButton.toggleClass("fa-microphone fa-microphone-slash");
-  micButton.prop("title", "Click to end and transcribe");
-}
-function deactivateMicIcon(micButton) {
-  micButton.toggleClass("fa-microphone fa-microphone-slash");
-  micButton.prop("title", "Click to speak");
-}
+const DEBUG_PREFIX$7 = "<Speech Recognition module (Browser)> ";
 class BrowserSttProvider {
   constructor() {
-    //########//
-    // Config //
-    //########//
     __publicField(this, "settings", {
       language: ""
     });
@@ -8525,7 +8654,7 @@ class BrowserSttProvider {
   }
   onSettingsChange() {
     this.settings.language = $("#speech_recognition_browser_provider_language").val();
-    console.debug(DEBUG_PREFIX$3 + "Change language to", this.settings.language);
+    console.debug(DEBUG_PREFIX$7 + "Change language to", this.settings.language);
     this.loadSettings(this.settings);
   }
   static capitalizeInterim(interimTranscript) {
@@ -8546,9 +8675,9 @@ class BrowserSttProvider {
     return previous + spacing + interim;
   }
   loadSettings(settings) {
-    const processTranscript2 = this.processTranscriptFunction;
+    const processTranscript = this.processTranscriptFunction;
     if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$3 + "Using default browser STT settings");
+      console.debug(DEBUG_PREFIX$7 + "Using default browser STT settings");
     }
     this.settings = this.defaultSettings;
     for (const key in settings) {
@@ -8566,7 +8695,7 @@ class BrowserSttProvider {
     const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const speechRecognitionList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
     if (!speechRecognition) {
-      console.warn(DEBUG_PREFIX$3 + "Speech recognition is not supported in this browser.");
+      console.warn(DEBUG_PREFIX$7 + "Speech recognition is not supported in this browser.");
       $("#microphone_button").hide();
       window.toastr.error("Speech recognition is not supported in this browser, use another browser or another provider of SillyTavern-extras Speech recognition extension.", "Speech recognition activation Failed (Browser)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
       return;
@@ -8623,116 +8752,32 @@ class BrowserSttProvider {
     };
     recognition.onend = function() {
       listening = false;
-      console.debug(DEBUG_PREFIX$3 + "recorder stopped");
-      deactivateMicIcon(button);
+      console.debug(DEBUG_PREFIX$7 + "recorder stopped");
+      UiHelper.deactivateMicIcon(button);
       const newText = textarea.val().substring(initialText.length);
       textarea.val(textarea.val().substring(0, initialText.length));
-      processTranscript2(newText);
+      processTranscript(newText);
     };
     recognition.onstart = function() {
       initialText = textarea.val();
-      console.debug(DEBUG_PREFIX$3 + "recorder started");
-      activateMicIcon(button);
+      console.debug(DEBUG_PREFIX$7 + "recorder started");
+      UiHelper.activateMicIcon(button);
       if ($("#speech_recognition_message_mode").val() == "replace") {
         textarea.val("");
         initialText = "";
       }
     };
     $("#microphone_button").show();
-    console.debug(DEBUG_PREFIX$3 + "Browser STT settings loaded");
+    console.debug(DEBUG_PREFIX$7 + "Browser STT settings loaded");
+  }
+  processAudio(wavBlob) {
+    throw new Error("`processAudio` is unsupported by BrowserSttProvider.");
   }
 }
-const DEBUG_PREFIX$2 = "<Speech Recognition module (streaming)> ";
-class StreamingSttProvider {
-  constructor() {
-    //########//
-    // Config //
-    //########//
-    __publicField(this, "settings");
-    __publicField(this, "defaultSettings", {
-      triggerCharMin: 0,
-      triggerWordsText: "",
-      triggerWords: [],
-      triggerWordsEnabled: false,
-      triggerWordsIncluded: false,
-      debug: false,
-      language: ""
-    });
-  }
-  get settingsHtml() {
-    let html = '        <div id="speech_recognition_streaming_trigger_words_div">        <span>Minimum spoken characters to trigger</span><br>        <input max="99" min="0" class="text_pole" id="speech_recognition_streaming_trigger_min_chars" type="number"><br>        <span>Trigger words</span>        <textarea id="speech_recognition_streaming_trigger_words" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated words that triggers new message, example:\nhey, hey aqua, record, listen"></textarea>        <label class="checkbox_label" for="speech_recognition_streaming_trigger_words_enabled">            <input type="checkbox" id="speech_recognition_streaming_trigger_words_enabled" name="speech_recognition_trigger_words_enabled">            <small>Enable trigger words</small>        </label>        <label class="checkbox_label" for="speech_recognition_trigger_words_included">            <input type="checkbox" id="speech_recognition_trigger_words_included" name="speech_recognition_trigger_words_included">            <small>Include trigger words in message</small>        </label>        <label class="checkbox_label" for="speech_recognition_streaming_debug">            <input type="checkbox" id="speech_recognition_streaming_debug" name="speech_recognition_streaming_debug">            <small>Enable debug pop ups</small>        </label>        </div>        ';
-    return html;
-  }
-  onSettingsChange() {
-    this.settings.triggerCharMin = Number.parseInt($("#speech_recognition_streaming_trigger_min_chars").val());
-    this.settings.triggerWordsText = $("#speech_recognition_streaming_trigger_words").val();
-    let array = $("#speech_recognition_streaming_trigger_words").val().split(",");
-    array = array.map((element) => {
-      return element.trim().toLowerCase();
-    });
-    array = array.filter((str) => str !== "");
-    this.settings.triggerWords = array;
-    this.settings.triggerWordsEnabled = $("#speech_recognition_streaming_trigger_words_enabled").is(":checked");
-    this.settings.triggerWordsIncluded = $("#speech_recognition_trigger_words_included").is(":checked");
-    this.settings.debug = $("#speech_recognition_streaming_debug").is(":checked");
-    console.debug(DEBUG_PREFIX$2 + " Updated settings: ", this.settings);
-    this.loadSettings(this.settings);
-  }
-  loadSettings(settings) {
-    if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$2 + "Using default Whisper STT extension settings");
-    }
-    this.settings = this.defaultSettings;
-    for (const key in settings) {
-      if (key in this.settings) {
-        this.settings[key] = settings[key];
-      } else {
-        throw `Invalid setting passed to STT extension: ${key}`;
-      }
-    }
-    $("#speech_recognition_streaming_trigger_min_chars").val(this.settings.triggerCharMin);
-    $("#speech_recognition_streaming_trigger_words").val(this.settings.triggerWordsText);
-    $("#speech_recognition_streaming_trigger_words_enabled").prop("checked", this.settings.triggerWordsEnabled);
-    $("#speech_recognition_trigger_words_included").prop("checked", this.settings.triggerWordsIncluded);
-    $("#speech_recognition_streaming_debug").prop("checked", this.settings.debug);
-    $("#speech_recognition_language").val(this.settings.language);
-    console.debug(DEBUG_PREFIX$2 + "streaming STT settings loaded");
-  }
-  async getUserMessage() {
-    if (!modules.includes("streaming-stt")) {
-      console.debug(DEBUG_PREFIX$2 + "Module streaming-stt must be activated in Sillytavern Extras for streaming user voice.");
-      return "";
-    }
-    const url = new URL(getApiUrl());
-    url.pathname = "/api/speech-recognition/streaming/record-and-transcript";
-    const apiResult = await doExtrasFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Bypass-Tunnel-Reminder": "bypass"
-      },
-      body: JSON.stringify({
-        text: "",
-        language: this.settings.language
-      })
-    });
-    if (!apiResult.ok) {
-      window.toastr.error(apiResult.statusText, DEBUG_PREFIX$2 + "STT Generation Failed  (streaming)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
-    }
-    const data = await apiResult.json();
-    if (data.transcript.length > this.settings.triggerCharMin) {
-      return data.transcript;
-    }
-  }
-}
-const DEBUG_PREFIX$1 = "<Speech Recognition module (KoboldCpp)> ";
+const DEBUG_PREFIX$6 = "<Speech Recognition module (KoboldCpp)> ";
 class KoboldCppSttProvider {
   constructor() {
-    //########//
-    // Config //
-    //########//
-    __publicField(this, "settings");
+    __publicField(this, "settings", null);
     __publicField(this, "defaultSettings", {
       language: ""
     });
@@ -8746,7 +8791,7 @@ class KoboldCppSttProvider {
   }
   loadSettings(settings) {
     if (Object.keys(settings).length == 0) {
-      console.debug(DEBUG_PREFIX$1 + "Using default KoboldCpp STT extension settings");
+      console.debug(DEBUG_PREFIX$6 + "Using default KoboldCpp STT extension settings");
     }
     this.settings = this.defaultSettings;
     for (const key in settings) {
@@ -8756,8 +8801,7 @@ class KoboldCppSttProvider {
         throw `Invalid setting passed to STT extension: ${key}`;
       }
     }
-    $("#speech_recognition_language").val(this.settings.language);
-    console.debug(DEBUG_PREFIX$1 + "KoboldCpp STT settings loaded");
+    console.debug(DEBUG_PREFIX$6 + "KoboldCpp STT settings loaded");
   }
   async processAudio(audioBlob) {
     const server = textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP];
@@ -8784,521 +8828,813 @@ class KoboldCppSttProvider {
     return result.text;
   }
 }
+const DEBUG_PREFIX$5 = "<Speech Recognition module (streaming)> ";
+class StreamingSttProvider {
+  constructor() {
+    __publicField(this, "settings", null);
+    __publicField(this, "defaultSettings", {
+      triggerCharMin: 0,
+      triggerWordsText: "",
+      triggerWords: [],
+      triggerWordsEnabled: false,
+      triggerWordsIncluded: false,
+      debug: false,
+      language: ""
+    });
+  }
+  get settingsHtml() {
+    let html = '        <div id="speech_recognition_streaming_trigger_words_div">        <span>Minimum spoken characters to trigger</span><br>        <input max="99" min="0" class="text_pole" id="speech_recognition_streaming_trigger_min_chars" type="number"><br>        <span>Trigger words</span>        <textarea id="speech_recognition_streaming_trigger_words" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated words that triggers new message, example:\nhey, hey aqua, record, listen"></textarea>        <label class="checkbox_label" for="speech_recognition_streaming_trigger_words_enabled">            <input type="checkbox" id="speech_recognition_streaming_trigger_words_enabled" name="speech_recognition_trigger_words_enabled">            <small>Enable trigger words</small>        </label>        <label class="checkbox_label" for="speech_recognition_trigger_words_included">            <input type="checkbox" id="speech_recognition_trigger_words_included" name="speech_recognition_trigger_words_included">            <small>Include trigger words in message</small>        </label>        <label class="checkbox_label" for="speech_recognition_streaming_debug">            <input type="checkbox" id="speech_recognition_streaming_debug" name="speech_recognition_streaming_debug">            <small>Enable debug pop ups</small>        </label>        </div>        ';
+    return html;
+  }
+  onSettingsChange() {
+    this.settings.triggerCharMin = Number.parseInt($("#speech_recognition_streaming_trigger_min_chars").val());
+    this.settings.triggerWordsText = $("#speech_recognition_streaming_trigger_words").val();
+    let array = $("#speech_recognition_streaming_trigger_words").val().split(",");
+    array = array.map((element) => {
+      return element.trim().toLowerCase();
+    });
+    array = array.filter((str) => str !== "");
+    this.settings.triggerWords = array;
+    this.settings.triggerWordsEnabled = $("#speech_recognition_streaming_trigger_words_enabled").is(":checked");
+    this.settings.triggerWordsIncluded = $("#speech_recognition_trigger_words_included").is(":checked");
+    this.settings.debug = $("#speech_recognition_streaming_debug").is(":checked");
+    console.debug(DEBUG_PREFIX$5 + " Updated settings: ", this.settings);
+    this.loadSettings(this.settings);
+  }
+  loadSettings(settings) {
+    if (Object.keys(settings).length == 0) {
+      console.debug(DEBUG_PREFIX$5 + "Using default Whisper STT extension settings");
+    }
+    this.settings = this.defaultSettings;
+    for (const key in settings) {
+      if (key in this.settings) {
+        this.settings[key] = settings[key];
+      } else {
+        throw `Invalid setting passed to STT extension: ${key}`;
+      }
+    }
+    $("#speech_recognition_streaming_trigger_min_chars").val(this.settings.triggerCharMin);
+    $("#speech_recognition_streaming_trigger_words").val(this.settings.triggerWordsText);
+    $("#speech_recognition_streaming_trigger_words_enabled").prop("checked", this.settings.triggerWordsEnabled);
+    $("#speech_recognition_trigger_words_included").prop("checked", this.settings.triggerWordsIncluded);
+    $("#speech_recognition_streaming_debug").prop("checked", this.settings.debug);
+    console.debug(DEBUG_PREFIX$5 + "streaming STT settings loaded");
+  }
+  async getUserMessage() {
+    if (!modules.includes("streaming-stt")) {
+      console.debug(DEBUG_PREFIX$5 + "Module streaming-stt must be activated in Sillytavern Extras for streaming user voice.");
+      return "";
+    }
+    const url = new URL(getApiUrl());
+    url.pathname = "/api/speech-recognition/streaming/record-and-transcript";
+    const apiResult = await doExtrasFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Bypass-Tunnel-Reminder": "bypass"
+      },
+      body: JSON.stringify({
+        text: "",
+        language: this.settings.language
+      })
+    });
+    if (!apiResult.ok) {
+      window.toastr.error(apiResult.statusText, DEBUG_PREFIX$5 + "STT Generation Failed  (streaming)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
+    }
+    const data = await apiResult.json();
+    if (data.transcript.length > this.settings.triggerCharMin) {
+      return data.transcript;
+    }
+  }
+  processAudio(wavBlob) {
+    throw new Error("`processAudio` is unsupported by StreamingSttProvider.");
+  }
+}
+const DEBUG_PREFIX$4 = "<Speech Recognition module (Vosk)> ";
+class VoskSttProvider {
+  constructor() {
+    __publicField(this, "settings", null);
+    __publicField(this, "defaultSettings", {
+      language: ""
+    });
+  }
+  get settingsHtml() {
+    let html = "";
+    return html;
+  }
+  onSettingsChange() {
+  }
+  loadSettings(settings) {
+    if (Object.keys(settings).length == 0) {
+      console.debug(DEBUG_PREFIX$4 + "Using default vosk STT extension settings");
+    }
+    this.settings = this.defaultSettings;
+    for (const key in settings) {
+      if (key in this.settings) {
+        this.settings[key] = settings[key];
+      } else {
+        throw `Invalid setting passed to STT extension: ${key}`;
+      }
+    }
+    console.debug(DEBUG_PREFIX$4 + "Vosk STT settings loaded");
+  }
+  async processAudio(audioblob) {
+    var requestData = new FormData();
+    requestData.append("AudioFile", audioblob, "record.wav");
+    requestData.append("language", this.settings.language);
+    const url = new URL(getApiUrl());
+    url.pathname = "/api/speech-recognition/vosk/process-audio";
+    const apiResult = await doExtrasFetch(url, {
+      method: "POST",
+      body: requestData
+    });
+    if (!apiResult.ok) {
+      window.toastr.error(apiResult.statusText, "STT Generation Failed  (Vosk)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
+    }
+    const result = await apiResult.json();
+    return result.transcript;
+  }
+}
+const DEBUG_PREFIX$3 = "<Speech Recognition module (Whisper Extras)> ";
+class WhisperExtrasSttProvider {
+  constructor() {
+    __publicField(this, "settings", null);
+    __publicField(this, "defaultSettings", {
+      //model_path: "",
+      language: ""
+    });
+  }
+  get settingsHtml() {
+    let html = "";
+    return html;
+  }
+  onSettingsChange() {
+  }
+  loadSettings(settings) {
+    if (Object.keys(settings).length == 0) {
+      console.debug(DEBUG_PREFIX$3 + "Using default Whisper STT extension settings");
+    }
+    this.settings = this.defaultSettings;
+    for (const key in settings) {
+      if (key in this.settings) {
+        this.settings[key] = settings[key];
+      } else {
+        throw `Invalid setting passed to STT extension: ${key}`;
+      }
+    }
+    console.debug(DEBUG_PREFIX$3 + "Whisper (Extras) STT settings loaded");
+  }
+  async processAudio(audioblob) {
+    var requestData = new FormData();
+    requestData.append("AudioFile", audioblob, "record.wav");
+    requestData.append("language", this.settings.language);
+    const url = new URL(getApiUrl());
+    url.pathname = "/api/speech-recognition/whisper/process-audio";
+    const apiResult = await doExtrasFetch(url, {
+      method: "POST",
+      body: requestData
+    });
+    if (!apiResult.ok) {
+      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper Extras)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
+    }
+    const result = await apiResult.json();
+    return result.transcript;
+  }
+}
+const DEBUG_PREFIX$2 = "<Speech Recognition module (Whisper Local)> ";
+class WhisperLocalSttProvider {
+  constructor() {
+    __publicField(this, "settings", null);
+    __publicField(this, "defaultSettings", {
+      language: "",
+      model: "Xenova/whisper-base.en"
+    });
+  }
+  get settingsHtml() {
+    let html = `
+        <span>Whisper Model</span> </br>
+        <select id="whisper_local_model">
+            <optgroup label="Multilingual">
+                <option value="Xenova/whisper-tiny">whisper-tiny</option>
+                <option value="Xenova/whisper-base">whisper-base</option>
+                <option value="Xenova/whisper-small">whisper-small</option>
+                <option value="Xenova/whisper-medium">whisper-medium</option>
+                <option value="Xenova/whisper-large">whisper-large</option>
+                <option value="Xenova/whisper-large-v2">whisper-large-v2</option>
+                <option value="Xenova/whisper-large-v3">whisper-large-v3</option>
+            </optgroup>
+            <optgroup label="English">
+                <option value="Xenova/whisper-tiny.en">whisper-tiny.en</option>
+                <option value="Xenova/whisper-base.en">whisper-base.en</option>
+                <option value="Xenova/whisper-small.en">whisper-small.en</option>
+                <option value="Xenova/whisper-medium.en">whisper-medium.en</option>
+            </optgroup>
+        </select>
+        <div><i>Loading model for the first time may take a while!</i></div>`;
+    return html;
+  }
+  onSettingsChange() {
+    this.settings.model = $("#whisper_local_model").val();
+    console.debug(DEBUG_PREFIX$2 + " Updated settings: ", this.settings);
+    this.loadSettings(this.settings);
+  }
+  loadSettings(settings) {
+    if (Object.keys(settings).length == 0) {
+      console.debug(DEBUG_PREFIX$2 + "Using default Whisper (Local) STT extension settings");
+    }
+    this.settings = this.defaultSettings;
+    for (const key in settings) {
+      if (key in this.settings) {
+        this.settings[key] = settings[key];
+      } else {
+        throw `Invalid setting passed to STT extension: ${key}`;
+      }
+    }
+    $("#whisper_local_model").val(this.settings.model);
+    console.debug(DEBUG_PREFIX$2 + "Whisper (Local) STT settings loaded");
+  }
+  async processAudio(audioBlob) {
+    const audio = await getBase64Async(audioBlob);
+    const lang = this.settings.language || null;
+    const model = this.settings.model || "Xenova/whisper-base.en";
+    const apiResult = await fetch("/api/speech/recognize", {
+      method: "POST",
+      headers: getRequestHeaders(),
+      body: JSON.stringify({ audio, lang, model })
+    });
+    if (!apiResult.ok) {
+      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper Local)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
+    }
+    const result = await apiResult.json();
+    return result.text;
+  }
+}
+const DEBUG_PREFIX$1 = "<Speech Recognition module (Whisper OpenAI)> ";
+class WhisperOpenAISttProvider {
+  constructor() {
+    __publicField(this, "settings", null);
+    __publicField(this, "defaultSettings", {
+      language: ""
+    });
+  }
+  get settingsHtml() {
+    let html = "";
+    return html;
+  }
+  onSettingsChange() {
+  }
+  loadSettings(settings) {
+    if (Object.keys(settings).length == 0) {
+      console.debug(DEBUG_PREFIX$1 + "Using default Whisper (OpenAI) STT extension settings");
+    }
+    this.settings = this.defaultSettings;
+    for (const key in settings) {
+      if (key in this.settings) {
+        this.settings[key] = settings[key];
+      } else {
+        throw `Invalid setting passed to STT extension: ${key}`;
+      }
+    }
+    console.debug(DEBUG_PREFIX$1 + "Whisper (OpenAI) STT settings loaded");
+  }
+  async processAudio(audioBlob) {
+    const requestData = new FormData();
+    requestData.append("avatar", audioBlob, "record.wav");
+    requestData.append("model", "whisper-1");
+    if (this.settings.language) {
+      requestData.append("language", this.settings.language);
+    }
+    const headers = getRequestHeaders();
+    delete headers["Content-Type"];
+    const apiResult = await fetch("/api/openai/transcribe-audio", {
+      method: "POST",
+      headers,
+      body: requestData
+    });
+    if (!apiResult.ok) {
+      window.toastr.error(apiResult.statusText, "STT Generation Failed (Whisper OpenAI)", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+      throw new Error(`HTTP ${apiResult.status}: ${await apiResult.text()}`);
+    }
+    const result = await apiResult.json();
+    return result.text;
+  }
+}
 const DEBUG_PREFIX = "<Speech Recognition Ex module> ";
-const UPDATE_INTERVAL = 100;
 const URL_TO_EXTENSION = "/scripts/extensions/third-party/SpeechRecognitionEx";
-let inApiCall = false;
-let sttProviders = {
-  None: null,
-  Browser: BrowserSttProvider,
+const STT_PROVIDERS = {
+  "None": null,
+  "Browser": BrowserSttProvider,
   "KoboldCpp": KoboldCppSttProvider,
   "Whisper (Extras)": WhisperExtrasSttProvider,
   "Whisper (OpenAI)": WhisperOpenAISttProvider,
   "Whisper (Local)": WhisperLocalSttProvider,
-  Vosk: VoskSttProvider,
-  Streaming: StreamingSttProvider
+  "Vosk": VoskSttProvider,
+  "Streaming": StreamingSttProvider
 };
-let sttProvider = null;
-let sttProviderName = "None";
-let audioRecording = false;
-const constraints = { audio: { sampleSize: 16, channelCount: 1, sampleRate: 16e3 } };
-let audioChunks = [];
-async function moduleWorker() {
-  if (sttProviderName != "Streaming") {
-    return;
-  }
-  if (inApiCall) {
-    return;
-  }
-  try {
-    inApiCall = true;
-    const userMessageOriginal = await sttProvider.getUserMessage();
-    let userMessageFormatted = userMessageOriginal.trim();
-    if (userMessageFormatted.length > 0) {
-      console.debug(DEBUG_PREFIX + 'recorded transcript: "' + userMessageFormatted + '"');
-      let userMessageLower = userMessageFormatted.toLowerCase();
-      let userMessageRaw = userMessageLower.replace(/[^\p{L}\p{M}\s']/gu, "").replace(/\s+/g, " ");
-      console.debug(DEBUG_PREFIX + "raw transcript:", userMessageRaw);
-      let messageStart = -1;
-      if (extension_settings.speech_recognition.Streaming.triggerWordsEnabled) {
-        for (const triggerWord of extension_settings.speech_recognition.Streaming.triggerWords) {
-          const triggerPos = userMessageRaw.indexOf(triggerWord.toLowerCase());
-          if (triggerPos == -1) {
-            console.debug(DEBUG_PREFIX + "trigger word not found: ", triggerWord);
-          } else {
-            console.debug(DEBUG_PREFIX + "Found trigger word: ", triggerWord, " at index ", triggerPos);
-            if (triggerPos < messageStart || messageStart == -1) {
-              messageStart = triggerPos;
-              if (!extension_settings.speech_recognition.Streaming.triggerWordsIncluded)
-                messageStart = triggerPos + triggerWord.length + 1;
-            }
-          }
-        }
-      } else {
-        messageStart = 0;
-      }
-      if (messageStart == -1) {
-        console.debug(DEBUG_PREFIX + 'message ignored, no trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"');
-        if (extension_settings.speech_recognition.Streaming.debug) {
-          window.toastr.info(
-            'No trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"',
-            DEBUG_PREFIX + "message ignored.",
-            { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true }
-          );
-        }
-      } else {
-        userMessageFormatted = userMessageFormatted.substring(messageStart);
-        messageStart = 0;
-        for (const i of userMessageFormatted) {
-          if (/^[\p{L}\p{M}]$/iu.test(i)) {
-            break;
-          }
-          messageStart += 1;
-        }
-        userMessageFormatted = userMessageFormatted.substring(messageStart);
-        userMessageFormatted = userMessageFormatted.charAt(0).toUpperCase() + userMessageFormatted.substring(1);
-        processTranscript(userMessageFormatted);
-      }
-    } else {
-      console.debug(DEBUG_PREFIX + "Received empty transcript, ignored");
-    }
-  } catch (error) {
-    console.debug(error);
-  } finally {
-    inApiCall = false;
-  }
-}
-async function processTranscript(transcript) {
-  try {
-    const transcriptOriginal = transcript;
-    let transcriptFormatted = transcriptOriginal.trim();
-    if (transcriptFormatted.length > 0) {
-      console.debug(DEBUG_PREFIX + 'recorded transcript: "' + transcriptFormatted + '"');
-      const messageMode = extension_settings.speech_recognition.messageMode;
-      console.debug(DEBUG_PREFIX + "mode: " + messageMode);
-      let transcriptLower = transcriptFormatted.toLowerCase();
-      let transcriptRaw = transcriptLower.replace(/[^\w\s\'а-я]|_/g, "").replace(/\s+/g, " ");
-      if (extension_settings.speech_recognition.messageMappingEnabled) {
-        for (const s of [transcriptRaw, transcriptFormatted]) {
-          console.debug(DEBUG_PREFIX + "Start searching message mapping into:", s);
-          for (const key in extension_settings.speech_recognition.messageMapping) {
-            console.debug(DEBUG_PREFIX + "message mapping searching: ", key, "=>", extension_settings.speech_recognition.messageMapping[key]);
-            if (s.includes(key)) {
-              var message = extension_settings.speech_recognition.messageMapping[key];
-              console.debug(DEBUG_PREFIX + "message mapping found: ", key, "=>", extension_settings.speech_recognition.messageMapping[key]);
-              $("#send_textarea").val(message);
-              if (messageMode == "auto_send") await getContext().generate();
-              return;
-            }
-          }
-        }
-      }
-      console.debug(DEBUG_PREFIX + "no message mapping found, processing transcript as normal message");
-      const textarea = $("#send_textarea");
-      switch (messageMode) {
-        case "auto_send":
-          textarea.val("")[0].dispatchEvent(new Event("input", { bubbles: true }));
-          await sendMessageAsUser(transcriptFormatted);
-          await getContext().generate();
-          $("#debug_output").text('<SST-module DEBUG>: message sent: "' + transcriptFormatted + '"');
-          break;
-        case "replace":
-          console.debug(DEBUG_PREFIX + "Replacing message");
-          textarea.val(transcriptFormatted);
-          break;
-        case "append":
-          console.debug(DEBUG_PREFIX + "Appending message");
-          const existingMessage = textarea.val();
-          textarea.val(existingMessage + " " + transcriptFormatted);
-          break;
-        default:
-          console.debug(DEBUG_PREFIX + "Not supported stt message mode: " + messageMode);
-      }
-    } else {
-      console.debug(DEBUG_PREFIX + "Empty transcript, do nothing");
-    }
-  } catch (error) {
-    console.debug(error);
-  }
-}
-async function loadNavigatorAudioRecording() {
-  if (navigator.mediaDevices.getUserMedia) {
-    console.debug(DEBUG_PREFIX + " getUserMedia supported by browser.");
-    await loadScripts();
-    const micButton = $("#microphone_button");
-    let onSuccess = async function(stream) {
-      const myVAD = await window.vad.MicVAD.new({
-        redemptionFrames: 15,
-        onSpeechStart: () => {
-          if (!audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
-            console.debug(DEBUG_PREFIX + "Voice started");
-            if (micButton.is(":visible")) {
-              micButton.trigger("click");
-            }
-          }
-        },
-        onSpeechEnd: async (audio) => {
-          if (audioRecording && extension_settings.speech_recognition.voiceActivationEnabled) {
-            console.debug(DEBUG_PREFIX + "Voice stopped");
-            if (micButton.is(":visible")) {
-              micButton.trigger("click");
-              await processPcmArrays(16e3, [audio]);
-            }
-          }
-        }
-      });
-      myVAD.start();
-      let mediaRecorder2 = new MediaRecorder(stream);
-      micButton.off("click").on("click", function() {
-        if (!audioRecording) {
-          if (!extension_settings.speech_recognition.voiceActivationEnabled) {
-            mediaRecorder2.start();
-          }
-          console.debug(DEBUG_PREFIX + mediaRecorder2.state);
-          console.debug(DEBUG_PREFIX + "recorder started");
-          audioRecording = true;
-          activateMicIcon(micButton);
-        } else {
-          if (!extension_settings.speech_recognition.voiceActivationEnabled) {
-            mediaRecorder2.stop();
-          }
-          console.debug(DEBUG_PREFIX + mediaRecorder2.state);
-          console.debug(DEBUG_PREFIX + "recorder stopped");
-          audioRecording = false;
-          deactivateMicIcon(micButton);
-        }
-      });
-      mediaRecorder2.onstop = async function() {
-        console.debug(DEBUG_PREFIX + "data available after MediaRecorder.stop() called: ", audioChunks.length, " chunks");
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm;codecs=opus" });
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const audioContext = new AudioContext();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        audioChunks = [];
-        const pcmArrays = [];
-        for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-          pcmArrays.push(audioBuffer.getChannelData(i));
-        }
-        await processPcmArrays(audioBuffer.sampleRate, pcmArrays);
-      };
-      mediaRecorder2.ondataavailable = function(e) {
-        audioChunks.push(e.data);
-      };
-      async function processPcmArrays(sampleRate, pcmArrays) {
-        const wavBlob = await convertAudioBufferToWavBlob(sampleRate, pcmArrays);
-        const transcript = await sttProvider.processAudio(wavBlob);
-        console.debug(DEBUG_PREFIX + "received transcript:", transcript);
-        processTranscript(transcript);
-      }
-    };
-    let onError = function(err) {
-      console.debug(DEBUG_PREFIX + "The following error occured: " + err);
-    };
-    navigator.mediaDevices.getUserMedia(constraints).then(onSuccess, onError);
-  } else {
-    console.debug(DEBUG_PREFIX + "getUserMedia not supported on your browser!");
-    window.toastr.error("getUserMedia not supported", DEBUG_PREFIX + "not supported for your browser.", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
-  }
-}
-async function loadSttProvider(provider) {
-  $("#speech_recognition_provider_settings").html("");
-  extension_settings.speech_recognition.currentProvider = provider;
-  sttProviderName = provider;
-  if (!(sttProviderName in extension_settings.speech_recognition)) {
-    console.warn(`Provider ${sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
-    extension_settings.speech_recognition[sttProviderName] = {};
-  }
-  $("#speech_recognition_provider").val(sttProviderName);
-  stopCurrentProvider();
-  if (sttProviderName == "None") {
-    $("#microphone_button").hide();
-    $("#speech_recognition_message_mode_div").hide();
-    $("#speech_recognition_message_mapping_div").hide();
-    $("#speech_recognition_language_div").hide();
-    $("#speech_recognition_ptt_div").hide();
-    $("#speech_recognition_voice_activation_enabled_div").hide();
-    return;
-  }
-  $("#speech_recognition_message_mode_div").show();
-  $("#speech_recognition_message_mapping_div").show();
-  $("#speech_recognition_language_div").show();
-  sttProvider = new sttProviders[sttProviderName]();
-  $("#speech_recognition_provider_settings").append(sttProvider.settingsHtml);
-  if (sttProviderName == "Browser") {
-    $("#speech_recognition_language_div").hide();
-    sttProvider.processTranscriptFunction = processTranscript;
-    sttProvider.loadSettings(extension_settings.speech_recognition[sttProviderName]);
-    $("#microphone_button").show();
-  }
-  const nonStreamingProviders = ["Vosk", "Whisper (OpenAI)", "Whisper (Extras)", "Whisper (Local)", "KoboldCpp"];
-  if (nonStreamingProviders.includes(sttProviderName)) {
-    sttProvider.loadSettings(extension_settings.speech_recognition[sttProviderName]);
-    await loadNavigatorAudioRecording();
-    $("#microphone_button").show();
-  }
-  if (sttProviderName == "Streaming") {
-    sttProvider.loadSettings(extension_settings.speech_recognition[sttProviderName]);
-    $("#microphone_button").off("click");
-    $("#microphone_button").hide();
-  }
-  $("#speech_recognition_ptt_div").toggle(sttProviderName != "Streaming");
-  $("#speech_recognition_voice_activation_enabled_div").toggle(sttProviderName != "Streaming");
-}
-function stopCurrentProvider() {
-  console.debug(DEBUG_PREFIX + "stop current provider");
-  if (audioRecording) {
-    audioRecording = false;
-    const micButton = $("#microphone_button");
-    if (micButton.is(":visible")) {
-      deactivateMicIcon(micButton);
-    }
-  }
-}
-function onSttLanguageChange() {
-  extension_settings.speech_recognition[sttProviderName].language = String($("#speech_recognition_language").val());
-  sttProvider.loadSettings(extension_settings.speech_recognition[sttProviderName]);
-  saveSettingsDebounced();
-}
-async function onSttProviderChange() {
-  const sttProviderSelection = $("#speech_recognition_provider").val();
-  await loadSttProvider(sttProviderSelection);
-  saveSettingsDebounced();
-}
-function onSttProviderSettingsInput() {
-  sttProvider.onSettingsChange();
-  extension_settings.speech_recognition[sttProviderName] = sttProvider.settings;
-  saveSettingsDebounced();
-  console.info(`Saved settings ${sttProviderName} ${JSON.stringify(sttProvider.settings)}`);
-}
-const defaultSettings = {
-  currentProvider: "None",
-  messageMode: "append",
-  messageMappingText: "",
-  messageMapping: [],
-  messageMappingEnabled: false,
-  voiceActivationEnabled: false,
-  /**
-   * @type {KeyCombo} Push-to-talk key combo
-   */
-  ptt: null
-};
-function loadSettings() {
-  if (Object.keys(extension_settings.speech_recognition).length === 0) {
-    Object.assign(extension_settings.speech_recognition, defaultSettings);
-  }
-  for (const key in defaultSettings) {
-    if (extension_settings.speech_recognition[key] === void 0) {
-      extension_settings.speech_recognition[key] = defaultSettings[key];
-    }
-  }
-  $("#speech_recognition_enabled").prop("checked", extension_settings.speech_recognition.enabled);
-  $("#speech_recognition_message_mode").val(extension_settings.speech_recognition.messageMode);
-  if (extension_settings.speech_recognition.messageMappingText.length > 0) {
-    $("#speech_recognition_message_mapping").val(extension_settings.speech_recognition.messageMappingText);
-  }
-  $("#speech_recognition_message_mapping_enabled").prop("checked", extension_settings.speech_recognition.messageMappingEnabled);
-  $("#speech_recognition_ptt").val(extension_settings.speech_recognition.ptt ? formatPushToTalkKey(extension_settings.speech_recognition.ptt) : "");
-  $("#speech_recognition_voice_activation_enabled").prop("checked", extension_settings.speech_recognition.voiceActivationEnabled);
-}
-async function onMessageModeChange() {
-  extension_settings.speech_recognition.messageMode = $("#speech_recognition_message_mode").val();
-  if (sttProviderName != "Browser" && extension_settings.speech_recognition.messageMode == "auto_send") {
-    $("#speech_recognition_wait_response_div").show();
-  } else {
-    $("#speech_recognition_wait_response_div").hide();
-  }
-  saveSettingsDebounced();
-}
-async function onMessageMappingChange() {
-  let array = String($("#speech_recognition_message_mapping").val()).split(",");
-  array = array.map((element) => {
-    return element.trim();
-  });
-  array = array.filter((str) => str !== "");
-  extension_settings.speech_recognition.messageMapping = {};
-  for (const text of array) {
-    if (text.includes("=")) {
-      const pair = text.toLowerCase().split("=");
-      extension_settings.speech_recognition.messageMapping[pair[0].trim()] = pair[1].trim();
-      console.debug(DEBUG_PREFIX + "Added mapping", pair[0], "=>", extension_settings.speech_recognition.messageMapping[pair[0]]);
-    } else {
-      console.debug(DEBUG_PREFIX + "Wrong syntax for message mapping, no '=' found in:", text);
-    }
-  }
-  $("#speech_recognition_message_mapping_status").text("Message mapping updated to: " + JSON.stringify(extension_settings.speech_recognition.messageMapping));
-  console.debug(DEBUG_PREFIX + "Updated message mapping", extension_settings.speech_recognition.messageMapping);
-  extension_settings.speech_recognition.messageMappingText = $("#speech_recognition_message_mapping").val();
-  saveSettingsDebounced();
-}
-async function onMessageMappingEnabledClick() {
-  extension_settings.speech_recognition.messageMappingEnabled = $("#speech_recognition_message_mapping_enabled").is(":checked");
-  saveSettingsDebounced();
-}
-function onVoiceActivationEnabledChange() {
-  extension_settings.speech_recognition.voiceActivationEnabled = !!$("#speech_recognition_voice_activation_enabled").prop("checked");
-  saveSettingsDebounced();
-}
-function convertAudioBufferToWavBlob(sampleRate, pcmArrays) {
-  return new Promise((resolve) => {
-    var worker = new Worker(URL_TO_EXTENSION + "/dist/wave-worker.js");
-    worker.onmessage = (e) => {
-      var blob = new Blob([e.data.buffer], { type: "audio/wav" });
-      resolve(blob);
-    };
-    worker.postMessage({
-      pcmArrays,
-      config: { sampleRate }
-    });
-  });
-}
-function keyboardEventToKeyCombo(event) {
-  return {
-    code: event.code,
-    ctrl: event.ctrlKey,
-    alt: event.altKey,
-    shift: event.shiftKey,
-    meta: event.metaKey
-  };
-}
-const WINDOWS_LABELS = {
-  ctrl: "Ctrl",
-  alt: "Alt",
-  shift: "Shift",
-  meta: "Win"
-};
-const MAC_LABELS = {
-  ctrl: "⌃",
-  alt: "⌥",
-  shift: "⇧",
-  meta: "⌘"
-};
-const LINUX_LABELS = {
-  ctrl: "Ctrl",
-  alt: "Alt",
-  shift: "Shift",
-  meta: "Meta"
-};
-function getLabelsForUserAgent() {
-  const userAgent = navigator.userAgent;
-  if (userAgent.includes("Macintosh")) {
-    return MAC_LABELS;
-  } else if (userAgent.includes("Windows")) {
-    return WINDOWS_LABELS;
-  } else {
-    return LINUX_LABELS;
-  }
-}
-function formatPushToTalkKey(key) {
-  const labels = getLabelsForUserAgent();
-  const parts = [];
-  if (key.ctrl) {
-    parts.push(labels.ctrl);
-  }
-  if (key.alt) {
-    parts.push(labels.alt);
-  }
-  if (key.shift) {
-    parts.push(labels.shift);
-  }
-  if (key.meta) {
-    parts.push(labels.meta);
-  }
-  parts.push(key.code);
-  return parts.join(" + ");
-}
-function isKeyComboMatch(keyCombo, event) {
-  return keyCombo.code === event.code && keyCombo.ctrl === event.ctrlKey && keyCombo.alt === event.altKey && keyCombo.shift === event.shiftKey && keyCombo.meta === event.metaKey;
-}
-function isPushToTalkEnabled() {
-  return extension_settings.speech_recognition.ptt !== null && sttProviderName !== "Streaming" && sttProviderName !== "None";
-}
-let lastPressTime = 0;
-function processPushToTalkStart(event) {
-  if (!isPushToTalkEnabled()) {
-    return;
-  }
-  const key = extension_settings.speech_recognition.ptt;
-  if (isKeyComboMatch(key, event) && !event.repeat) {
-    console.debug(DEBUG_PREFIX + "Push-to-talk key pressed");
-    lastPressTime = Date.now();
-    $("#microphone_button").trigger("click");
-  }
-}
-function processPushToTalkEnd(event) {
-  if (!isPushToTalkEnabled()) {
-    return;
-  }
-  const key = extension_settings.speech_recognition.ptt;
-  if (key.code === event.code) {
-    console.debug(DEBUG_PREFIX + "Push-to-talk key released");
-    if (Date.now() - lastPressTime > 500 && audioRecording) {
-      $("#microphone_button").trigger("click");
-    }
-  }
-}
-async function loadScripts() {
-  function loadScript(url) {
-    return new Promise((resolve) => {
+class LoaderHelper {
+  static loadScript(url) {
+    return new Promise((resolve, reject) => {
       if (!document.querySelector("script[src='" + url + "']")) {
         const elem = document.createElement("script");
-        elem.addEventListener("load", () => resolve(null));
+        elem.addEventListener("load", (ev) => resolve(ev));
+        elem.addEventListener("error", (ev) => reject(ev));
         elem.src = url;
         document.head.appendChild(elem);
       }
     });
   }
-  await loadScript(URL_TO_EXTENSION + "/vad/onnxruntime-web/ort.js");
-  await loadScript(URL_TO_EXTENSION + "/vad/ricky0123-vad-web/bundle.min.js");
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(null), 1);
-  });
 }
-function setup() {
-  function addExtensionControls() {
-    $("#speech_recognition_provider_settings").on("input", onSttProviderSettingsInput);
-    for (const provider in sttProviders) {
-      $("#speech_recognition_provider").append($("<option />").val(provider).text(provider));
-      console.debug(DEBUG_PREFIX + "added option " + provider);
+class WaveHelper {
+  static async convertAudioChunksToPcmArray(audioChunks) {
+    console.debug(DEBUG_PREFIX + "data available after MediaRecorder.stop() called: ", audioChunks.length, " chunks");
+    const audioBlob = new Blob(audioChunks, { type: "audio/webm;codecs=opus" });
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    audioChunks = [];
+    const pcmArrays = [];
+    for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+      pcmArrays.push(audioBuffer.getChannelData(i));
     }
-    $("#speech_recognition_provider").on("change", onSttProviderChange);
-    $("#speech_recognition_message_mode").on("change", onMessageModeChange);
-    $("#speech_recognition_message_mapping").on("change", onMessageMappingChange);
-    $("#speech_recognition_language").on("change", onSttLanguageChange);
-    $("#speech_recognition_message_mapping_enabled").on("click", onMessageMappingEnabledClick);
-    $("#speech_recognition_voice_activation_enabled").on("change", onVoiceActivationEnabledChange);
-    $("#speech_recognition_ptt").on("focus", function() {
-      if (this instanceof HTMLInputElement) {
-        this.value = 'Enter a key combo. "Escape" to clear';
-        $(this).off("keydown").on("keydown", function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (e.key === "Meta" || e.key === "Alt" || e.key === "Shift" || e.key === "Control") {
-            return;
-          }
-          if (e.key === "Escape") {
-            extension_settings.speech_recognition.ptt = null;
-            saveSettingsDebounced();
-            return this.blur();
-          }
-          const keyCombo = keyboardEventToKeyCombo(e);
-          extension_settings.speech_recognition.ptt = keyCombo;
-          saveSettingsDebounced();
-          return this.blur();
-        });
-      }
+    return {
+      sampleRate: audioBuffer.sampleRate,
+      pcmArrays
+    };
+  }
+  static convertPcmArraysToWavBlob(sampleRate, pcmArrays) {
+    return new Promise((resolve) => {
+      var worker = new Worker(URL_TO_EXTENSION + "/dist/wave-worker.js");
+      worker.onmessage = (e) => {
+        var blob = new Blob([e.data.buffer], { type: "audio/wav" });
+        resolve(blob);
+      };
+      worker.postMessage({
+        pcmArrays,
+        config: { sampleRate }
+      });
     });
-    $("#speech_recognition_ptt").on("blur", function() {
-      if (this instanceof HTMLInputElement) {
-        $(this).off("keydown");
-        if (extension_settings.speech_recognition.ptt) {
-          this.value = formatPushToTalkKey(extension_settings.speech_recognition.ptt);
-        } else {
-          this.value = "";
+  }
+}
+class SettingsHelper {
+  static get settings() {
+    return extension_settings.speech_recognition;
+  }
+  static ensureSettingsContainsAllKeys() {
+    if (Object.keys(this.settings).length === 0) {
+      Object.assign(this.settings, this.DEFAULT_SETTINGS);
+    }
+    for (const key in this.DEFAULT_SETTINGS) {
+      if (typeof this.settings[key] === "undefined") {
+        this.settings[key] = this.DEFAULT_SETTINGS[key];
+      }
+    }
+  }
+}
+__publicField(SettingsHelper, "DEFAULT_SETTINGS", {
+  enabled: false,
+  currentProvider: "None",
+  messageMode: "append",
+  messageMappingText: "",
+  messageMapping: {},
+  messageMappingEnabled: false,
+  voiceActivationEnabled: false,
+  ptt: null
+  // Push-to-talk key combo
+});
+class TranscriptionHelper {
+  static async processTranscript(transcript) {
+    try {
+      const transcriptOriginal = transcript;
+      let transcriptFormatted = transcriptOriginal.trim();
+      if (transcriptFormatted.length > 0) {
+        console.debug(DEBUG_PREFIX + 'recorded transcript: "' + transcriptFormatted + '"');
+        const messageMode = SettingsHelper.settings.messageMode;
+        console.debug(DEBUG_PREFIX + "mode: " + messageMode);
+        let transcriptLower = transcriptFormatted.toLowerCase();
+        let transcriptRaw = transcriptLower.replace(/[^\w\s\'а-я]|_/g, "").replace(/\s+/g, " ");
+        if (SettingsHelper.settings.messageMappingEnabled) {
+          for (const s of [transcriptRaw, transcriptFormatted]) {
+            console.debug(DEBUG_PREFIX + "Start searching message mapping into:", s);
+            for (const key in SettingsHelper.settings.messageMapping) {
+              console.debug(DEBUG_PREFIX + "message mapping searching: ", key, "=>", SettingsHelper.settings.messageMapping[key]);
+              if (s.includes(key)) {
+                var message = SettingsHelper.settings.messageMapping[key];
+                console.debug(DEBUG_PREFIX + "message mapping found: ", key, "=>", SettingsHelper.settings.messageMapping[key]);
+                $("#send_textarea").val(message);
+                if (messageMode == "auto_send") await getContext().generate();
+                return;
+              }
+            }
+          }
+        }
+        console.debug(DEBUG_PREFIX + "no message mapping found, processing transcript as normal message");
+        const textarea = $("#send_textarea");
+        switch (messageMode) {
+          case "auto_send":
+            textarea.val("")[0].dispatchEvent(new Event("input", { bubbles: true }));
+            await sendMessageAsUser(transcriptFormatted);
+            await getContext().generate();
+            $("#debug_output").text('<SST-module DEBUG>: message sent: "' + transcriptFormatted + '"');
+            break;
+          case "replace":
+            console.debug(DEBUG_PREFIX + "Replacing message");
+            textarea.val(transcriptFormatted);
+            break;
+          case "append":
+            console.debug(DEBUG_PREFIX + "Appending message");
+            const existingMessage = textarea.val();
+            textarea.val(existingMessage + " " + transcriptFormatted);
+            break;
+          default:
+            console.debug(DEBUG_PREFIX + "Not supported stt message mode: " + messageMode);
+        }
+      } else {
+        console.debug(DEBUG_PREFIX + "Empty transcript, do nothing");
+      }
+    } catch (error) {
+      console.debug(error);
+    }
+  }
+}
+class MediaRecorderHelper {
+  static async loadNavigatorAudioRecording() {
+    if (!navigator.mediaDevices.getUserMedia) {
+      console.debug(DEBUG_PREFIX + "getUserMedia not supported on your browser!");
+      window.toastr.error("getUserMedia not supported", DEBUG_PREFIX + "not supported for your browser.", { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true });
+    }
+    console.debug(DEBUG_PREFIX + " getUserMedia supported by browser.");
+    await this.loadScripts();
+    const micButton = $("#microphone_button");
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(this.constraints);
+    } catch (e) {
+      console.debug(DEBUG_PREFIX + "The following error occured: " + e);
+    }
+    const myVAD = await window.vad.MicVAD.new({
+      redemptionFrames: 15,
+      onSpeechStart: () => {
+        if (!this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+          console.debug(DEBUG_PREFIX + "Voice started");
+          if (micButton.is(":visible")) {
+            micButton.trigger("click");
+          }
+        }
+      },
+      onSpeechEnd: async (audio) => {
+        if (this.audioRecording && SettingsHelper.settings.voiceActivationEnabled) {
+          console.debug(DEBUG_PREFIX + "Voice stopped");
+          if (micButton.is(":visible")) {
+            micButton.trigger("click");
+            await processPcmArrays(16e3, [audio]);
+          }
         }
       }
     });
-    document.body.addEventListener("keydown", processPushToTalkStart);
-    document.body.addEventListener("keyup", processPushToTalkEnd);
+    myVAD.start();
+    this.mediaRecorder = new MediaRecorder(stream);
+    micButton.off("click").on("click", () => {
+      if (!this.audioRecording) {
+        if (!SettingsHelper.settings.voiceActivationEnabled) {
+          this.mediaRecorder.start();
+        }
+        console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+        console.debug(DEBUG_PREFIX + "recorder started");
+        this.audioRecording = true;
+        UiHelper.activateMicIcon(micButton);
+      } else {
+        if (!SettingsHelper.settings.voiceActivationEnabled) {
+          this.mediaRecorder.stop();
+        }
+        console.debug(DEBUG_PREFIX + this.mediaRecorder.state);
+        console.debug(DEBUG_PREFIX + "recorder stopped");
+        this.audioRecording = false;
+        UiHelper.deactivateMicIcon(micButton);
+      }
+    });
+    this.mediaRecorder.onstop = async () => {
+      const r = await WaveHelper.convertAudioChunksToPcmArray(this.audioChunks);
+      await processPcmArrays(r.sampleRate, r.pcmArrays);
+    };
+    this.mediaRecorder.ondataavailable = (e) => {
+      this.audioChunks.push(e.data);
+    };
+    async function processPcmArrays(sampleRate, pcmArrays) {
+      const wavBlob = await WaveHelper.convertPcmArraysToWavBlob(sampleRate, pcmArrays);
+      const transcript = await SttProvider.sttProvider.processAudio(wavBlob);
+      console.debug(DEBUG_PREFIX + "received transcript:", transcript);
+      TranscriptionHelper.processTranscript(transcript);
+    }
+  }
+  static async loadScripts() {
+    await LoaderHelper.loadScript(URL_TO_EXTENSION + "/vad/onnxruntime-web/ort.js");
+    await LoaderHelper.loadScript(URL_TO_EXTENSION + "/vad/ricky0123-vad-web/bundle.min.js");
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(null), 1);
+    });
+  }
+}
+__publicField(MediaRecorderHelper, "constraints", {
+  audio: {
+    sampleSize: 16,
+    channelCount: 1,
+    sampleRate: 16e3
+  }
+});
+__publicField(MediaRecorderHelper, "audioRecording", false);
+__publicField(MediaRecorderHelper, "audioChunks", []);
+__publicField(MediaRecorderHelper, "mediaRecorder", null);
+const _SttProvider = class _SttProvider {
+  static get sttProviderName() {
+    return this._sttProviderName;
+  }
+  static set sttProviderName(v) {
+    _SttProvider.loadSttProvider(v).then((_) => saveSettingsDebounced());
+  }
+  static async loadSttProvider(provider) {
+    SettingsHelper.settings.currentProvider = provider;
+    this._sttProviderName = provider;
+    if (!(this.sttProviderName in SettingsHelper.settings)) {
+      console.warn(`Provider ${this.sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
+      SettingsHelper.settings[this.sttProviderName] = {};
+    }
+    this.stopCurrentProvider();
+    if (this.sttProviderName == "None") {
+      $("#microphone_button").hide();
+      $("#speech_recognition_message_mode_div").hide();
+      $("#speech_recognition_message_mapping_div").hide();
+      return;
+    }
+    $("#speech_recognition_message_mode_div").show();
+    $("#speech_recognition_message_mapping_div").show();
+    this.sttProvider = new STT_PROVIDERS[this.sttProviderName]();
+    if (this.sttProviderName == "Browser") {
+      this.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
+      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+      $("#microphone_button").show();
+    }
+    const nonStreamingProviders = ["Vosk", "Whisper (OpenAI)", "Whisper (Extras)", "Whisper (Local)", "KoboldCpp"];
+    if (nonStreamingProviders.includes(this.sttProviderName)) {
+      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+      await MediaRecorderHelper.loadNavigatorAudioRecording();
+      $("#microphone_button").show();
+    }
+    if (this.sttProviderName == "Streaming") {
+      this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+      $("#microphone_button").off("click");
+      $("#microphone_button").hide();
+    }
+  }
+  static stopCurrentProvider() {
+    console.debug(DEBUG_PREFIX + "stop current provider");
+    if (MediaRecorderHelper.mediaRecorder) {
+      MediaRecorderHelper.mediaRecorder.onstop = null;
+      MediaRecorderHelper.mediaRecorder.ondataavailable = null;
+      MediaRecorderHelper.mediaRecorder.stream.getTracks().forEach((track2) => track2.stop());
+      MediaRecorderHelper.mediaRecorder.stop();
+      MediaRecorderHelper.mediaRecorder = null;
+    }
+    if (MediaRecorderHelper.audioRecording) {
+      MediaRecorderHelper.audioRecording = false;
+      const micButton = $("#microphone_button");
+      if (micButton.is(":visible")) {
+        UiHelper.deactivateMicIcon(micButton);
+      }
+    }
+  }
+  static onSttLanguageChange(language) {
+    SettingsHelper.settings[this.sttProviderName].language = language;
+    this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
+    saveSettingsDebounced();
+  }
+  static onSttProviderSettingsInput() {
+    this.sttProvider.onSettingsChange();
+    SettingsHelper.settings[this.sttProviderName] = this.sttProvider.settings;
+    saveSettingsDebounced();
+    console.info(`Saved settings ${this.sttProviderName} ${JSON.stringify(this.sttProvider.settings)}`);
+  }
+};
+__publicField(_SttProvider, "_sttProviderName", "None");
+__publicField(_SttProvider, "sttProvider");
+let SttProvider = _SttProvider;
+class ModuleWorker {
+  static async moduleWorker() {
+    if (SttProvider.sttProviderName != "Streaming") return;
+    if (this.inApiCall) return;
+    try {
+      this.inApiCall = true;
+      const userMessageOriginal = await SttProvider.sttProvider.getUserMessage();
+      let userMessageFormatted = userMessageOriginal.trim();
+      if (userMessageFormatted.length > 0) {
+        console.debug(DEBUG_PREFIX + 'recorded transcript: "' + userMessageFormatted + '"');
+        let userMessageLower = userMessageFormatted.toLowerCase();
+        let userMessageRaw = userMessageLower.replace(/[^\p{L}\p{M}\s']/gu, "").replace(/\s+/g, " ");
+        console.debug(DEBUG_PREFIX + "raw transcript:", userMessageRaw);
+        let messageStart = -1;
+        const streamingSettings = SttProvider.sttProvider.settings;
+        if (streamingSettings.triggerWordsEnabled) {
+          for (const triggerWord of streamingSettings.triggerWords) {
+            const triggerPos = userMessageRaw.indexOf(triggerWord.toLowerCase());
+            if (triggerPos == -1) {
+              console.debug(DEBUG_PREFIX + "trigger word not found: ", triggerWord);
+            } else {
+              console.debug(DEBUG_PREFIX + "Found trigger word: ", triggerWord, " at index ", triggerPos);
+              if (triggerPos < messageStart || messageStart == -1) {
+                messageStart = triggerPos;
+                if (!streamingSettings.triggerWordsIncluded)
+                  messageStart = triggerPos + triggerWord.length + 1;
+              }
+            }
+          }
+        } else {
+          messageStart = 0;
+        }
+        if (messageStart == -1) {
+          console.debug(DEBUG_PREFIX + 'message ignored, no trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"');
+          if (streamingSettings.debug) {
+            window.toastr.info(
+              'No trigger word preceding a message. Voice transcript: "' + userMessageOriginal + '"',
+              DEBUG_PREFIX + "message ignored.",
+              { timeOut: 1e4, extendedTimeOut: 2e4, preventDuplicates: true }
+            );
+          }
+        } else {
+          userMessageFormatted = userMessageFormatted.substring(messageStart);
+          messageStart = 0;
+          for (const i of userMessageFormatted) {
+            if (/^[\p{L}\p{M}]$/iu.test(i)) {
+              break;
+            }
+            messageStart += 1;
+          }
+          userMessageFormatted = userMessageFormatted.substring(messageStart);
+          userMessageFormatted = userMessageFormatted.charAt(0).toUpperCase() + userMessageFormatted.substring(1);
+          TranscriptionHelper.processTranscript(userMessageFormatted);
+        }
+      } else {
+        console.debug(DEBUG_PREFIX + "Received empty transcript, ignored");
+      }
+    } catch (error) {
+      console.debug(error);
+    } finally {
+      this.inApiCall = false;
+    }
+  }
+}
+__publicField(ModuleWorker, "inApiCall");
+class KeyboardHelper {
+  static keyboardEventToKeyCombo(event) {
+    return {
+      code: event.code,
+      ctrl: event.ctrlKey,
+      alt: event.altKey,
+      shift: event.shiftKey,
+      meta: event.metaKey
+    };
+  }
+  /**
+   * Gets the key labels for the current user agent.
+   * @returns {Record<string, string>}
+   */
+  static getLabelsForUserAgent() {
+    const userAgent = navigator.userAgent;
+    if (userAgent.includes("Macintosh")) {
+      return this.MAC_LABELS;
+    } else if (userAgent.includes("Windows")) {
+      return this.WINDOWS_LABELS;
+    } else {
+      return this.LINUX_LABELS;
+    }
+  }
+  static formatPushToTalkKey(key) {
+    const labels = this.getLabelsForUserAgent();
+    const parts = [];
+    if (key.ctrl) {
+      parts.push(labels.ctrl);
+    }
+    if (key.alt) {
+      parts.push(labels.alt);
+    }
+    if (key.shift) {
+      parts.push(labels.shift);
+    }
+    if (key.meta) {
+      parts.push(labels.meta);
+    }
+    parts.push(key.code);
+    return parts.join(" + ");
+  }
+  static isKeyComboMatch(keyCombo, event) {
+    return keyCombo.code === event.code && keyCombo.ctrl === event.ctrlKey && keyCombo.alt === event.altKey && keyCombo.shift === event.shiftKey && keyCombo.meta === event.metaKey;
+  }
+}
+__publicField(KeyboardHelper, "WINDOWS_LABELS", {
+  ctrl: "Ctrl",
+  alt: "Alt",
+  shift: "Shift",
+  meta: "Win"
+});
+__publicField(KeyboardHelper, "MAC_LABELS", {
+  ctrl: "⌃",
+  alt: "⌥",
+  shift: "⇧",
+  meta: "⌘"
+});
+__publicField(KeyboardHelper, "LINUX_LABELS", {
+  ctrl: "Ctrl",
+  alt: "Alt",
+  shift: "Shift",
+  meta: "Meta"
+});
+class PushToTalkHelper {
+  static isPushToTalkEnabled() {
+    return SettingsHelper.settings.ptt !== null && SttProvider.sttProviderName !== "Streaming" && SttProvider.sttProviderName !== "None";
+  }
+  static processPushToTalkStart(event) {
+    if (!this.isPushToTalkEnabled()) return;
+    const key = SettingsHelper.settings.ptt;
+    if (KeyboardHelper.isKeyComboMatch(key, event) && !event.repeat) {
+      console.debug(DEBUG_PREFIX + "Push-to-talk key pressed");
+      this.lastPressTime = Date.now();
+      $("#microphone_button").trigger("click");
+    }
+  }
+  static processPushToTalkEnd(event) {
+    if (!this.isPushToTalkEnabled()) return;
+    const key = SettingsHelper.settings.ptt;
+    if (key.code === event.code) {
+      console.debug(DEBUG_PREFIX + "Push-to-talk key released");
+      if (Date.now() - this.lastPressTime > 500 && MediaRecorderHelper.audioRecording) {
+        $("#microphone_button").trigger("click");
+      }
+    }
+  }
+}
+__publicField(PushToTalkHelper, "lastPressTime", 0);
+const UPDATE_INTERVAL = 100;
+let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttProviderSettingsForm_dec = [decorator], _ptt_dec = [decorator], _a) {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "sttProviderSettingsForm", __runInitializers(_init, 8, this)), __runInitializers(_init, 11, this);
+    __publicField(this, "ptt", __runInitializers(_init, 12, this)), __runInitializers(_init, 15, this);
+  }
+  get sttProviderNames() {
+    return Object.keys(STT_PROVIDERS);
+  }
+  get sttProviderSettingsFormInnerHtml() {
+    var _a2;
+    return ((_a2 = SttProvider.sttProvider) == null ? void 0 : _a2.settingsHtml) ?? "";
+  }
+  get sttProviderName() {
+    return SttProvider.sttProviderName;
+  }
+  set sttProviderName(v) {
+    SttProvider.sttProviderName = v;
+  }
+  get language() {
+    var _a2, _b2;
+    return (_b2 = (_a2 = SttProvider.sttProvider) == null ? void 0 : _a2.settings) == null ? void 0 : _b2.language;
+  }
+  set language(v) {
+    SttProvider.onSttLanguageChange(v);
+  }
+  get isShowPttHotkeySelector() {
+    return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming";
+  }
+  get isShowVoiceActivationCheckbox() {
+    return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming";
+  }
+  get voiceActivationEnabled() {
+    return SettingsHelper.settings.voiceActivationEnabled;
+  }
+  set voiceActivationEnabled(v) {
+    SettingsHelper.settings.voiceActivationEnabled = v;
+    saveSettingsDebounced();
+  }
+  mounted() {
+    $(() => {
+      this.setup();
+    });
+  }
+  setup() {
+    this.addExtensionControls();
+    this.loadSettings();
+    SttProvider.sttProviderName = SettingsHelper.settings.currentProvider;
+    const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
+    setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL);
+    ModuleWorker.moduleWorker();
+  }
+  addExtensionControls() {
+    $(this.sttProviderSettingsForm).on("input", SttProvider.onSttProviderSettingsInput);
+    $("#speech_recognition_message_mode").on("change", () => this.onMessageModeChange());
+    $("#speech_recognition_message_mapping").on("change", () => this.onMessageMappingChange());
+    $("#speech_recognition_message_mapping_enabled").on("click", () => this.onMessageMappingEnabledClick());
+    document.body.addEventListener("keydown", PushToTalkHelper.processPushToTalkStart);
+    document.body.addEventListener("keyup", PushToTalkHelper.processPushToTalkEnd);
     const $button = $('<div id="microphone_button" class="fa-solid fa-microphone speech-toggle interactable" tabindex="0" title="Click to speak"></div>');
     if ($("#send_but_sheld").length == 0) {
       $("#rightSendForm").prepend($button);
@@ -9306,27 +9642,79 @@ function setup() {
       $("#send_but_sheld").prepend($button);
     }
   }
-  addExtensionControls();
-  loadSettings();
-  loadSttProvider(extension_settings.speech_recognition.currentProvider);
-  const wrapper = new ModuleWorkerWrapper(moduleWorker);
-  setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL);
-  moduleWorker();
-}
-let App$1 = (_App_decorators = [Component], _a = class extends (_b = Vue) {
-  mounted() {
-    $(() => {
-      setup();
+  onPttFocus() {
+    this.ptt.value = 'Enter a key combo. "Escape" to clear';
+    $(this.ptt).off("keydown").on("keydown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Meta" || e.key === "Alt" || e.key === "Shift" || e.key === "Control") {
+        return;
+      }
+      if (e.key === "Escape") {
+        SettingsHelper.settings.ptt = null;
+        saveSettingsDebounced();
+        return this.ptt.blur();
+      }
+      const keyCombo = KeyboardHelper.keyboardEventToKeyCombo(e);
+      SettingsHelper.settings.ptt = keyCombo;
+      saveSettingsDebounced();
+      return this.ptt.blur();
     });
   }
-}, _init = __decoratorStart(_b), _a = __decorateElement(_init, 0, "App", _App_decorators, _a), __runInitializers(_init, 1, _a), _a);
+  onPttBlur() {
+    $(this.ptt).off("keydown");
+    if (SettingsHelper.settings.ptt) {
+      this.ptt.value = KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt);
+    } else {
+      this.ptt.value = "";
+    }
+  }
+  loadSettings() {
+    SettingsHelper.ensureSettingsContainsAllKeys();
+    $("#speech_recognition_enabled").prop("checked", SettingsHelper.settings.enabled);
+    $("#speech_recognition_message_mode").val(SettingsHelper.settings.messageMode);
+    if (SettingsHelper.settings.messageMappingText.length > 0) {
+      $("#speech_recognition_message_mapping").val(SettingsHelper.settings.messageMappingText);
+    }
+    $("#speech_recognition_message_mapping_enabled").prop("checked", SettingsHelper.settings.messageMappingEnabled);
+    this.ptt.value = SettingsHelper.settings.ptt ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt) : "";
+  }
+  async onMessageModeChange() {
+    SettingsHelper.settings.messageMode = $("#speech_recognition_message_mode").val();
+    if (SttProvider.sttProviderName != "Browser" && SettingsHelper.settings.messageMode == "auto_send") {
+      $("#speech_recognition_wait_response_div").show();
+    } else {
+      $("#speech_recognition_wait_response_div").hide();
+    }
+    saveSettingsDebounced();
+  }
+  async onMessageMappingChange() {
+    let array = String($("#speech_recognition_message_mapping").val()).split(",");
+    array = array.map((element) => {
+      return element.trim();
+    });
+    array = array.filter((str) => str !== "");
+    SettingsHelper.settings.messageMapping = {};
+    for (const text of array) {
+      if (text.includes("=")) {
+        const pair = text.toLowerCase().split("=");
+        SettingsHelper.settings.messageMapping[pair[0].trim()] = pair[1].trim();
+        console.debug(DEBUG_PREFIX + "Added mapping", pair[0], "=>", SettingsHelper.settings.messageMapping[pair[0]]);
+      } else {
+        console.debug(DEBUG_PREFIX + "Wrong syntax for message mapping, no '=' found in:", text);
+      }
+    }
+    $("#speech_recognition_message_mapping_status").text("Message mapping updated to: " + JSON.stringify(SettingsHelper.settings.messageMapping));
+    console.debug(DEBUG_PREFIX + "Updated message mapping", SettingsHelper.settings.messageMapping);
+    SettingsHelper.settings.messageMappingText = $("#speech_recognition_message_mapping").val();
+    saveSettingsDebounced();
+  }
+  async onMessageMappingEnabledClick() {
+    SettingsHelper.settings.messageMappingEnabled = $("#speech_recognition_message_mapping_enabled").is(":checked");
+    saveSettingsDebounced();
+  }
+}, _init = __decoratorStart(_a), __decorateElement(_init, 5, "sttProviderSettingsForm", _sttProviderSettingsForm_dec, _b), __decorateElement(_init, 5, "ptt", _ptt_dec, _b), _b = __decorateElement(_init, 0, "App", _App_decorators, _b), __runInitializers(_init, 1, _b), _b);
 const _sfc_main = toNative(App$1);
-const _hoisted_1 = { class: "inline-drawer" };
-function render(_ctx, _cache, $props, $setup, $data, $options) {
-  return openBlock(), createElementBlock("div", _hoisted_1, _cache[0] || (_cache[0] = [
-    createStaticVNode('<div class="inline-drawer-toggle inline-drawer-header"><b>Speech Recognition Ex</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><div><span>Select Speech-to-text Provider</span><select id="speech_recognition_provider"></select></div><div id="speech_recognition_language_div"><span>Speech Language</span><select id="speech_recognition_language"><option value="">-- Automatic --</option><option value="af">Afrikaans</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="be">Belarusian</option><option value="bs">Bosnian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh">Chinese</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="et">Estonian</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="de">German</option><option value="el">Greek</option><option value="he">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="kk">Kazakh</option><option value="ko">Korean</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mr">Marathi</option><option value="mi">Maori</option><option value="ne">Nepali</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="tl">Tagalog</option><option value="ta">Tamil</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option></select></div><div id="speech_recognition_ptt_div"><span>Recording Hotkey</span><i title="Press the designated keystroke to start the recording. Press again to stop. Only works if a browser tab is in focus." class="fa-solid fa-info-circle opacity50p"></i><input readonly type="text" id="speech_recognition_ptt" class="text_pole" placeholder="Click to set push-to-talk key"></div><div id="speech_recognition_voice_activation_enabled_div" title="Automatically start and stop recording when you start and stop speaking."><label class="checkbox_label" for="speech_recognition_voice_activation_enabled"><input type="checkbox" id="speech_recognition_voice_activation_enabled" name="speech_recognition_voice_activation_enabled"><small>Enable activation by voice</small></label></div><div id="speech_recognition_message_mode_div"><span>Message Mode</span><select id="speech_recognition_message_mode"><option value="append">Append</option><option value="replace">Replace</option><option value="auto_send">Auto send</option></select></div><div id="speech_recognition_message_mapping_div"><span>Message Mapping</span><textarea id="speech_recognition_message_mapping" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated phrases mapping, example:\\ncommand delete = /del 2,\\nslash delete = /del 2,\\nsystem roll = /roll 2d6,\\nhey continue = /continue"></textarea><span id="speech_recognition_message_mapping_status"></span><label class="checkbox_label" for="speech_recognition_message_mapping_enabled"><input type="checkbox" id="speech_recognition_message_mapping_enabled" name="speech_recognition_message_mapping_enabled"><small>Enable messages mapping</small></label></div><form id="speech_recognition_provider_settings" class="inline-drawer-content"></form></div>', 2)
-  ]));
-}
 const _export_sfc = (sfc, props) => {
   const target = sfc.__vccOpts || sfc;
   for (const [key, val] of props) {
@@ -9334,7 +9722,84 @@ const _export_sfc = (sfc, props) => {
   }
   return target;
 };
-const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", render]]);
+const _hoisted_1 = { class: "inline-drawer" };
+const _hoisted_2 = { class: "inline-drawer-content" };
+const _hoisted_3 = ["value"];
+const _hoisted_4 = { key: 0 };
+const _hoisted_5 = { key: 1 };
+const _hoisted_6 = {
+  key: 2,
+  title: "Automatically start and stop recording when you start and stop speaking."
+};
+const _hoisted_7 = { class: "checkbox_label" };
+const _hoisted_8 = ["innerHTML"];
+function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  return openBlock(), createElementBlock("div", _hoisted_1, [
+    _cache[12] || (_cache[12] = createBaseVNode("div", { class: "inline-drawer-toggle inline-drawer-header" }, [
+      createBaseVNode("b", null, "Speech Recognition Ex"),
+      createBaseVNode("div", { class: "inline-drawer-icon fa-solid fa-circle-chevron-down down" })
+    ], -1)),
+    createBaseVNode("div", _hoisted_2, [
+      createBaseVNode("div", null, [
+        _cache[5] || (_cache[5] = createBaseVNode("span", null, "Select Speech-to-text Provider", -1)),
+        withDirectives(createBaseVNode("select", {
+          "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => _ctx.sttProviderName = $event)
+        }, [
+          (openBlock(true), createElementBlock(Fragment, null, renderList(_ctx.sttProviderNames, (name) => {
+            return openBlock(), createElementBlock("option", { value: name }, toDisplayString(name), 9, _hoisted_3);
+          }), 256))
+        ], 512), [
+          [vModelSelect, _ctx.sttProviderName]
+        ])
+      ]),
+      _ctx.language || _ctx.language === "" ? (openBlock(), createElementBlock("div", _hoisted_4, [
+        _cache[7] || (_cache[7] = createBaseVNode("span", null, "Speech Language", -1)),
+        withDirectives(createBaseVNode("select", {
+          "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => _ctx.language = $event)
+        }, _cache[6] || (_cache[6] = [
+          createStaticVNode('<option value="">-- Automatic --</option><option value="af">Afrikaans</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="be">Belarusian</option><option value="bs">Bosnian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh">Chinese</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="et">Estonian</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="de">German</option><option value="el">Greek</option><option value="he">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="kk">Kazakh</option><option value="ko">Korean</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mr">Marathi</option><option value="mi">Maori</option><option value="ne">Nepali</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="tl">Tagalog</option><option value="ta">Tamil</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option>', 58)
+        ]), 512), [
+          [vModelSelect, _ctx.language]
+        ])
+      ])) : createCommentVNode("", true),
+      _ctx.isShowPttHotkeySelector ? (openBlock(), createElementBlock("div", _hoisted_5, [
+        _cache[8] || (_cache[8] = createBaseVNode("span", null, "Recording Hotkey", -1)),
+        _cache[9] || (_cache[9] = createBaseVNode("i", {
+          title: "Press the designated keystroke to start the recording. Press again to stop. Only works if a browser tab is in focus.",
+          class: "fa-solid fa-info-circle opacity50p"
+        }, null, -1)),
+        createBaseVNode("input", {
+          readonly: "",
+          type: "text",
+          class: "text_pole",
+          placeholder: "Click to set push-to-talk key",
+          ref: "ptt",
+          onFocus: _cache[2] || (_cache[2] = (...args) => _ctx.onPttFocus && _ctx.onPttFocus(...args)),
+          onBlur: _cache[3] || (_cache[3] = (...args) => _ctx.onPttBlur && _ctx.onPttBlur(...args))
+        }, null, 544)
+      ])) : createCommentVNode("", true),
+      _ctx.isShowVoiceActivationCheckbox ? (openBlock(), createElementBlock("div", _hoisted_6, [
+        createBaseVNode("label", _hoisted_7, [
+          withDirectives(createBaseVNode("input", {
+            type: "checkbox",
+            "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => _ctx.voiceActivationEnabled = $event),
+            name: "speech_recognition_voice_activation_enabled"
+          }, null, 512), [
+            [vModelCheckbox, _ctx.voiceActivationEnabled]
+          ]),
+          _cache[10] || (_cache[10] = createBaseVNode("small", null, "Enable activation by voice", -1))
+        ])
+      ])) : createCommentVNode("", true),
+      _cache[11] || (_cache[11] = createStaticVNode('<div id="speech_recognition_message_mode_div"><span>Message Mode</span><select id="speech_recognition_message_mode"><option value="append">Append</option><option value="replace">Replace</option><option value="auto_send">Auto send</option></select></div><div id="speech_recognition_message_mapping_div"><span>Message Mapping</span><textarea id="speech_recognition_message_mapping" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated phrases mapping, example:\\ncommand delete = /del 2,\\nslash delete = /del 2,\\nsystem roll = /roll 2d6,\\nhey continue = /continue"></textarea><span id="speech_recognition_message_mapping_status"></span><label class="checkbox_label" for="speech_recognition_message_mapping_enabled"><input type="checkbox" id="speech_recognition_message_mapping_enabled" name="speech_recognition_message_mapping_enabled"><small>Enable messages mapping</small></label></div>', 2)),
+      createBaseVNode("form", {
+        ref: "sttProviderSettingsForm",
+        class: "inline-drawer-content",
+        innerHTML: _ctx.sttProviderSettingsFormInnerHtml
+      }, null, 8, _hoisted_8)
+    ])
+  ]);
+}
+const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render]]);
 const rootElement = document.createElement("div");
 rootElement.setAttribute("id", "speech_recognition_settings");
 const rootContainer = document.getElementById("stt_container") ?? document.getElementById("extensions_settings");

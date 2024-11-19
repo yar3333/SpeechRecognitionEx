@@ -6,10 +6,10 @@
             "script": "build",
             "problemMatcher": [],
             "label": "npm run build",
-            "detail": "",
+            "detail": "run-p type-check \"build-only {@}\" --",
             "group": {
                 "kind": "build",
-                "isDefault": false
+                "isDefault": true
             },
             "presentation": {
                 "echo": true,
@@ -25,11 +25,8 @@
             "script": "dev",
             "problemMatcher": [],
             "label": "npm run dev",
-            "detail": "",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "detail": "vue-tsc --project tsconfig.app.json --watch",
+            "group": "build",
             "presentation": {
                 "echo": true,
                 "reveal": "always",

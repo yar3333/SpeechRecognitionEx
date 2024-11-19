@@ -38,7 +38,6 @@ export class WhisperExtrasSttProvider implements ISttProvider {
             }
         }
 
-        $('#speech_recognition_language').val(this.settings.language);
         console.debug(DEBUG_PREFIX + 'Whisper (Extras) STT settings loaded');
     }
 

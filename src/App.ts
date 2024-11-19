@@ -1,4 +1,4 @@
-import { Component, Vue, toNative } from 'vue-facing-decorator';
+import { Component, Vue, toNative, Ref } from 'vue-facing-decorator';
 import { ModuleWorkerWrapper } from './externals/sillytavern-extensions';
 import { SttProvider } from './SttProvider';
 import { ModuleWorker } from './ModuleWorker';
@@ -13,67 +13,45 @@ const UPDATE_INTERVAL = 100;
 @Component
 class App extends Vue {
 
+    @Ref readonly sttProviderSettingsForm!: HTMLFormElement;
+    @Ref readonly ptt!: HTMLInputElement;
+
+    get sttProviderNames(): string[] { return Object.keys(STT_PROVIDERS) }
+    get sttProviderSettingsFormInnerHtml(): string { return SttProvider.sttProvider?.settingsHtml ?? '' }
+
+    get sttProviderName() { return SttProvider.sttProviderName }
+    set sttProviderName(v) { SttProvider.sttProviderName = v }
+
+    get language() { return SttProvider.sttProvider?.settings?.language }
+    set language(v) { SttProvider.onSttLanguageChange(v) }
+
+    get isShowPttHotkeySelector() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
+    get isShowVoiceActivationCheckbox() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
+
+    get voiceActivationEnabled() { return SettingsHelper.settings.voiceActivationEnabled }
+    set voiceActivationEnabled(v) { SettingsHelper.settings.voiceActivationEnabled = v; saveSettingsDebounced(); }
+
     mounted() {
         $(() => {
             this.setup();
         });
     }
 
-    setup() {
+    private setup() {
         this.addExtensionControls(); // No init dependencies
         this.loadSettings(); // Depends on Extension Controls and loadTtsProvider
-        SttProvider.loadSttProvider(SettingsHelper.settings.currentProvider); // No dependencies
+        SttProvider.sttProviderName = SettingsHelper.settings.currentProvider; // No dependencies
         const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
         setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL); // Init depends on all the things
         ModuleWorker.moduleWorker();
     }
 
     private addExtensionControls() {
-        $('#speech_recognition_provider_settings').on('input', SttProvider.onSttProviderSettingsInput);
-        for (const provider in STT_PROVIDERS) {
-            $('#speech_recognition_provider').append($('<option />').val(provider).text(provider));
-            console.debug(DEBUG_PREFIX + 'added option ' + provider);
-        }
-        $('#speech_recognition_provider').on('change', SttProvider.onSttProviderChange);
+        $(this.sttProviderSettingsForm).on('input', SttProvider.onSttProviderSettingsInput);
+
         $('#speech_recognition_message_mode').on('change', () => this.onMessageModeChange());
         $('#speech_recognition_message_mapping').on('change', () => this.onMessageMappingChange());
-        $('#speech_recognition_language').on('change', SttProvider.onSttLanguageChange);
         $('#speech_recognition_message_mapping_enabled').on('click', () => this.onMessageMappingEnabledClick());
-        $('#speech_recognition_voice_activation_enabled').on('change', () => this.onVoiceActivationEnabledChange());
-        $('#speech_recognition_ptt').on('focus', function () {
-            if (this instanceof HTMLInputElement) {
-                this.value = 'Enter a key combo. "Escape" to clear';
-                $(this).off('keydown').on('keydown', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    if (e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift' || e.key === 'Control') {
-                        return;
-                    }
-
-                    if (e.key === 'Escape') {
-                        SettingsHelper.settings.ptt = null;
-                        saveSettingsDebounced();
-                        return this.blur();
-                    }
-
-                    const keyCombo = KeyboardHelper.keyboardEventToKeyCombo(<KeyboardEvent><any>e);
-                    SettingsHelper.settings.ptt = keyCombo;
-                    saveSettingsDebounced();
-                    return this.blur();
-                });
-            }
-        });
-        $('#speech_recognition_ptt').on('blur', function () {
-            if (this instanceof HTMLInputElement) {
-                $(this).off('keydown');
-                if (SettingsHelper.settings.ptt) {
-                    this.value = KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt);
-                } else {
-                    this.value = '';
-                }
-            }
-        });
 
         document.body.addEventListener('keydown', PushToTalkHelper.processPushToTalkStart);
         document.body.addEventListener('keyup', PushToTalkHelper.processPushToTalkEnd);
@@ -84,6 +62,38 @@ class App extends Vue {
             $('#rightSendForm').prepend($button);
         } else {
             $('#send_but_sheld').prepend($button);
+        }
+    }
+
+    public onPttFocus() {
+        this.ptt.value = 'Enter a key combo. "Escape" to clear';
+        $(this.ptt).off('keydown').on('keydown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift' || e.key === 'Control') {
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                SettingsHelper.settings.ptt = null;
+                saveSettingsDebounced();
+                return this.ptt.blur();
+            }
+
+            const keyCombo = KeyboardHelper.keyboardEventToKeyCombo(<KeyboardEvent><any>e);
+            SettingsHelper.settings.ptt = keyCombo;
+            saveSettingsDebounced();
+            return this.ptt.blur();
+        });
+    }
+
+    public onPttBlur() {
+        $(this.ptt).off('keydown');
+        if (SettingsHelper.settings.ptt) {
+            this.ptt.value = KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt);
+        } else {
+            this.ptt.value = '';
         }
     }
 
@@ -98,10 +108,9 @@ class App extends Vue {
         }
 
         $('#speech_recognition_message_mapping_enabled').prop('checked', SettingsHelper.settings.messageMappingEnabled);
-        $('#speech_recognition_ptt').val(SettingsHelper.settings.ptt
+        this.ptt.value = SettingsHelper.settings.ptt
             ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt)
-            : '');
-        $('#speech_recognition_voice_activation_enabled').prop('checked', SettingsHelper.settings.voiceActivationEnabled);
+            : '';
     }
 
     async onMessageModeChange() {
@@ -141,11 +150,6 @@ class App extends Vue {
 
     private async onMessageMappingEnabledClick() {
         SettingsHelper.settings.messageMappingEnabled = $('#speech_recognition_message_mapping_enabled').is(':checked');
-        saveSettingsDebounced();
-    }
-
-    private onVoiceActivationEnabledChange() {
-        SettingsHelper.settings.voiceActivationEnabled = !!$('#speech_recognition_voice_activation_enabled').prop('checked');
         saveSettingsDebounced();
     }
 }

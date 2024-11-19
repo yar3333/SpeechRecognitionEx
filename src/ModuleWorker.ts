@@ -14,7 +14,7 @@ export class ModuleWorker {
         try {
             this.inApiCall = true;
 
-            const userMessageOriginal = await SttProvider.sttProvider.getUserMessage();
+            const userMessageOriginal = await (<StreamingSttProvider><any>SttProvider.sttProvider).getUserMessage();
             let userMessageFormatted = userMessageOriginal.trim();
 
             if (userMessageFormatted.length > 0) {
@@ -29,7 +29,7 @@ export class ModuleWorker {
                 // Detect trigger words
                 let messageStart = -1;
 
-                const streamingSettings = (<StreamingSttProvider>SttProvider.sttProvider).settings;
+                const streamingSettings = (<StreamingSttProvider><any>SttProvider.sttProvider).settings;
 
                 if (streamingSettings.triggerWordsEnabled) {
 

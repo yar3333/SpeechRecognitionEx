@@ -9,23 +9,26 @@ import type { ISttProvider } from "./stt-providers/ISttProvider";
 
 export class SttProvider {
 
-    public static sttProviderName = "none";
+    private static _sttProviderName = "None";
+
+    public static get sttProviderName() { return this._sttProviderName }
+    public static set sttProviderName(v: string) {
+        SttProvider.loadSttProvider(v)
+            .then(_ => saveSettingsDebounced());
+    }
+
     public static sttProvider: ISttProvider;
 
-    public static async loadSttProvider(provider: string) {
-        //Clear the current config and add new config
-        $('#speech_recognition_provider_settings').html('');
+    private static async loadSttProvider(provider: string) {
 
         // Init provider references
         SettingsHelper.settings.currentProvider = provider;
-        this.sttProviderName = provider;
+        this._sttProviderName = provider;
 
         if (!(this.sttProviderName in SettingsHelper.settings)) {
             console.warn(`Provider ${this.sttProviderName} not in Extension Settings, initiatilizing provider in settings`);
             SettingsHelper.settings[this.sttProviderName] = {};
         }
-
-        $('#speech_recognition_provider').val(this.sttProviderName);
 
         this.stopCurrentProvider();
 
@@ -33,25 +36,17 @@ export class SttProvider {
             $('#microphone_button').hide();
             $('#speech_recognition_message_mode_div').hide();
             $('#speech_recognition_message_mapping_div').hide();
-            $('#speech_recognition_language_div').hide();
-            $('#speech_recognition_ptt_div').hide();
-            $('#speech_recognition_voice_activation_enabled_div').hide();
             return;
         }
 
         $('#speech_recognition_message_mode_div').show();
         $('#speech_recognition_message_mapping_div').show();
-        $('#speech_recognition_language_div').show();
 
         this.sttProvider = new STT_PROVIDERS[this.sttProviderName];
 
-        // Init provider settings
-        $('#speech_recognition_provider_settings').append(this.sttProvider.settingsHtml);
-
         // Use microphone button as push to talk
         if (this.sttProviderName == 'Browser') {
-            $('#speech_recognition_language_div').hide();
-            (<BrowserSttProvider>this.sttProvider).processTranscriptFunction = TranscriptionHelper.processTranscript;
+            (<BrowserSttProvider><any>this.sttProvider).processTranscriptFunction = TranscriptionHelper.processTranscript;
             this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
             $('#microphone_button').show();
         }
@@ -68,9 +63,6 @@ export class SttProvider {
             $('#microphone_button').off('click');
             $('#microphone_button').hide();
         }
-
-        $('#speech_recognition_ptt_div').toggle(this.sttProviderName != 'Streaming');
-        $('#speech_recognition_voice_activation_enabled_div').toggle(this.sttProviderName != 'Streaming');
     }
 
     static stopCurrentProvider() {
@@ -91,17 +83,12 @@ export class SttProvider {
         }
     }
 
-    static onSttLanguageChange() {
-        SettingsHelper.settings[this.sttProviderName].language = String($('#speech_recognition_language').val());
+    static onSttLanguageChange(language: string) {
+        SettingsHelper.settings[this.sttProviderName].language = language;
         this.sttProvider.loadSettings(SettingsHelper.settings[this.sttProviderName]);
         saveSettingsDebounced();
     }
 
-    static async onSttProviderChange() {
-        const sttProviderSelection = <string>$('#speech_recognition_provider').val();
-        await this.loadSttProvider(sttProviderSelection);
-        saveSettingsDebounced();
-    }
 
     static onSttProviderSettingsInput() {
         this.sttProvider.onSettingsChange();

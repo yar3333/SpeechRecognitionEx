@@ -39,7 +39,7 @@ export class WhisperLocalSttProvider implements ISttProvider {
 
     onSettingsChange() {
         // Used when provider settings are updated from UI
-        this.settings.model = $('#whisper_local_model').val();
+        this.settings.model = <string>$('#whisper_local_model').val();
         console.debug(DEBUG_PREFIX + ' Updated settings: ', this.settings);
         this.loadSettings(this.settings);
     }
@@ -61,7 +61,6 @@ export class WhisperLocalSttProvider implements ISttProvider {
             }
         }
 
-        $('#speech_recognition_language').val(this.settings.language);
         $('#whisper_local_model').val(this.settings.model);
         console.debug(DEBUG_PREFIX + 'Whisper (Local) STT settings loaded');
     }
