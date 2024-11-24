@@ -7,13 +7,15 @@ import { saveSettingsDebounced } from './externals/sillytavern-script';
 import { KeyboardHelper } from './helpers/KeyboardHelper';
 import { PushToTalkHelper } from './helpers/PushToTalkHelper';
 import { SettingsHelper } from './helpers/SettingsHelper';
+import LanguageSelector from './components/language-selector/language-selector.vue';
 
 const UPDATE_INTERVAL = 100;
 
-@Component
+@Component({
+    components: { LanguageSelector }
+})
 class App extends Vue {
 
-    @Ref readonly sttProviderSettingsForm!: HTMLFormElement;
     @Ref readonly ptt!: HTMLInputElement;
 
     get sttProviderNames(): string[] { return Object.keys(STT_PROVIDERS) }
@@ -22,14 +24,28 @@ class App extends Vue {
     get sttProviderName() { return SttProvider.sttProviderName }
     set sttProviderName(v) { SttProvider.sttProviderName = v }
 
-    get language() { return SttProvider.sttProvider?.settings?.language }
-    set language(v) { SttProvider.onSttLanguageChange(v) }
-
     get isShowPttHotkeySelector() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
     get isShowVoiceActivationCheckbox() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
+    get isShowMessageMode() { return !!SttProvider.sttProvider }
 
     get voiceActivationEnabled() { return SettingsHelper.settings.voiceActivationEnabled }
     set voiceActivationEnabled(v) { SettingsHelper.settings.voiceActivationEnabled = v; saveSettingsDebounced(); }
+
+    get messageMode() { return SettingsHelper.settings.messageMode }
+    set messageMode(v: string) { this.onMessageModeChange(v); }
+
+    get isShowMessageMapping() { return !!SttProvider.sttProvider }
+
+    get messageMappingText() { return SettingsHelper.settings.messageMappingText }
+    set messageMappingText(v: string) { this.onMessageMappingChange(v) }
+
+    get isMessageMappingEnabled() { return SettingsHelper.settings.messageMappingEnabled }
+    set isMessageMappingEnabled(v: boolean) {
+        SettingsHelper.settings.messageMappingEnabled = v;
+        saveSettingsDebounced();
+    }
+
+    messageMappingStatus = '';
 
     mounted() {
         $(() => {
@@ -42,26 +58,20 @@ class App extends Vue {
         this.loadSettings(); // Depends on Extension Controls and loadTtsProvider
         SttProvider.sttProviderName = SettingsHelper.settings.currentProvider; // No dependencies
         const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
-        setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL); // Init depends on all the things
+        setInterval(() => wrapper.update(), UPDATE_INTERVAL); // Init depends on all the things
         ModuleWorker.moduleWorker();
     }
 
     private addExtensionControls() {
-        $(this.sttProviderSettingsForm).on('input', SttProvider.onSttProviderSettingsInput);
-
-        $('#speech_recognition_message_mode').on('change', () => this.onMessageModeChange());
-        $('#speech_recognition_message_mapping').on('change', () => this.onMessageMappingChange());
-        $('#speech_recognition_message_mapping_enabled').on('click', () => this.onMessageMappingEnabledClick());
-
         document.body.addEventListener('keydown', PushToTalkHelper.processPushToTalkStart);
         document.body.addEventListener('keyup', PushToTalkHelper.processPushToTalkEnd);
 
-        const $button = $('<div id="microphone_button" class="fa-solid fa-microphone speech-toggle interactable" tabindex="0" title="Click to speak"></div>');
+        const button = $('<div id="microphone_button" class="fa-solid fa-microphone speech-toggle interactable" tabindex="0" title="Click to speak"></div>');
         // For versions before 1.10.10
         if ($('#send_but_sheld').length == 0) {
-            $('#rightSendForm').prepend($button);
+            $('#rightSendForm').prepend(button);
         } else {
-            $('#send_but_sheld').prepend($button);
+            $('#send_but_sheld').prepend(button);
         }
     }
 
@@ -100,36 +110,22 @@ class App extends Vue {
     private loadSettings() {
         SettingsHelper.ensureSettingsContainsAllKeys();
 
-        $('#speech_recognition_enabled').prop('checked', SettingsHelper.settings.enabled);
-        $('#speech_recognition_message_mode').val(SettingsHelper.settings.messageMode);
-
-        if (SettingsHelper.settings.messageMappingText.length > 0) {
-            $('#speech_recognition_message_mapping').val(SettingsHelper.settings.messageMappingText);
-        }
-
-        $('#speech_recognition_message_mapping_enabled').prop('checked', SettingsHelper.settings.messageMappingEnabled);
         this.ptt.value = SettingsHelper.settings.ptt
             ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt)
             : '';
     }
 
-    async onMessageModeChange() {
-        SettingsHelper.settings.messageMode = <string>$('#speech_recognition_message_mode').val();
-
-        if (SttProvider.sttProviderName != 'Browser' && SettingsHelper.settings.messageMode == 'auto_send') {
-            $('#speech_recognition_wait_response_div').show();
-        }
-        else {
-            $('#speech_recognition_wait_response_div').hide();
-        }
+    async onMessageModeChange(mode: string) {
+        SettingsHelper.settings.messageMode = mode;
 
         saveSettingsDebounced();
     }
 
-    private async onMessageMappingChange() {
-        let array = String($('#speech_recognition_message_mapping').val()).split(',');
-        array = array.map(element => { return element.trim(); });
-        array = array.filter((str) => str !== '');
+    private async onMessageMappingChange(s: string) {
+        let array = s.split(',');
+        array = array.map(x => x.trim());
+        array = array.filter(x => x !== '');
+
         SettingsHelper.settings.messageMapping = {};
         for (const text of array) {
             if (text.includes('=')) {
@@ -142,15 +138,21 @@ class App extends Vue {
             }
         }
 
-        $('#speech_recognition_message_mapping_status').text('Message mapping updated to: ' + JSON.stringify(SettingsHelper.settings.messageMapping));
+        this.messageMappingStatus = 'Message mapping updated to: ' + JSON.stringify(SettingsHelper.settings.messageMapping);
         console.debug(DEBUG_PREFIX + 'Updated message mapping', SettingsHelper.settings.messageMapping);
-        SettingsHelper.settings.messageMappingText = <string>$('#speech_recognition_message_mapping').val();
+
+        SettingsHelper.settings.messageMappingText = s;
+
         saveSettingsDebounced();
     }
 
-    private async onMessageMappingEnabledClick() {
-        SettingsHelper.settings.messageMappingEnabled = $('#speech_recognition_message_mapping_enabled').is(':checked');
+    public onSttProviderSettingsChanged() {
+        SttProvider.sttProvider.onSettingsChange();
+
+        // Persist changes to SillyTavern stt extension settings
+        SettingsHelper.settings[SttProvider.sttProviderName] = SttProvider.sttProvider.settings;
         saveSettingsDebounced();
+        console.info(`Saved settings ${SttProvider.sttProviderName} ${JSON.stringify(SttProvider.sttProvider.settings)}`);
     }
 }
 export default toNative(App);

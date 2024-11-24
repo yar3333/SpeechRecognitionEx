@@ -3,7 +3,6 @@ import { extension_settings } from "@/externals/sillytavern-extensions";
 import type { KeyCombo } from "./KeyboardHelper";
 
 export interface ISpeechRecognitionSettings {
-    enabled: boolean;
     currentProvider: string;
     messageMode: string;
     messageMappingText: string;
@@ -18,7 +17,6 @@ export interface ISpeechRecognitionSettings {
 export class SettingsHelper {
 
     private static readonly DEFAULT_SETTINGS: ISpeechRecognitionSettings = {
-        enabled: false,
         currentProvider: 'None',
         messageMode: 'append',
         messageMappingText: '',
