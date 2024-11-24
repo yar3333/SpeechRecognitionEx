@@ -5,6 +5,7 @@
 
 import { UiHelper } from "@/helpers/UiHelper";
 import type { ISttProvider } from "./ISttProvider";
+import { SettingsHelper } from "@/helpers/SettingsHelper";
 
 declare global {
     interface Window {
@@ -231,7 +232,7 @@ export class BrowserSttProvider implements ISttProvider {
             console.debug(DEBUG_PREFIX + 'recorder started');
             UiHelper.activateMicIcon(button);
 
-            if ($('#speech_recognition_message_mode').val() == 'replace') {
+            if (SettingsHelper.settings.messageMode == 'replace') {
                 textarea.val('');
                 initialText = '';
             }

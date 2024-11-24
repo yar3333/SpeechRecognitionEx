@@ -38,13 +38,8 @@ export class SttProvider {
 
         if (SttProvider.sttProviderName == 'None') {
             $('#microphone_button').hide();
-            $('#speech_recognition_message_mode_div').hide();
-            $('#speech_recognition_message_mapping_div').hide();
             return;
         }
-
-        $('#speech_recognition_message_mode_div').show();
-        $('#speech_recognition_message_mapping_div').show();
 
         SttProvider.inner.sttProvider = new (<any>STT_PROVIDERS)[SttProvider.sttProviderName];
 
@@ -91,15 +86,5 @@ export class SttProvider {
         SettingsHelper.settings[SttProvider.sttProviderName].language = language;
         SttProvider.sttProvider.loadSettings(SettingsHelper.settings[SttProvider.sttProviderName]);
         saveSettingsDebounced();
-    }
-
-
-    static onSttProviderSettingsInput() {
-        SttProvider.sttProvider.onSettingsChange();
-
-        // Persist changes to SillyTavern stt extension settings
-        SettingsHelper.settings[SttProvider.sttProviderName] = SttProvider.sttProvider.settings;
-        saveSettingsDebounced();
-        console.info(`Saved settings ${SttProvider.sttProviderName} ${JSON.stringify(SttProvider.sttProvider.settings)}`);
     }
 }
