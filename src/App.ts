@@ -26,13 +26,16 @@ class App extends Vue {
 
     get isShowPttHotkeySelector() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
     get isShowVoiceActivationCheckbox() { return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming" }
-    get isShowMessageMode() { return !!SttProvider.sttProvider }
 
     get voiceActivationEnabled() { return SettingsHelper.settings.voiceActivationEnabled }
     set voiceActivationEnabled(v) { SettingsHelper.settings.voiceActivationEnabled = v; saveSettingsDebounced(); }
 
+    get isShowMessageMode() { return !!SttProvider.sttProvider }
     get messageMode() { return SettingsHelper.settings.messageMode }
-    set messageMode(v: string) { this.onMessageModeChange(v); }
+    set messageMode(v: string) {
+        SettingsHelper.settings.messageMode = v;
+        saveSettingsDebounced();
+    }
 
     get isShowMessageMapping() { return !!SttProvider.sttProvider }
 
@@ -49,17 +52,20 @@ class App extends Vue {
 
     mounted() {
         $(() => {
-            this.setup();
-        });
-    }
+            this.addExtensionControls(); // No init dependencies
 
-    private setup() {
-        this.addExtensionControls(); // No init dependencies
-        this.loadSettings(); // Depends on Extension Controls and loadTtsProvider
-        SttProvider.sttProviderName = SettingsHelper.settings.currentProvider; // No dependencies
-        const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
-        setInterval(() => wrapper.update(), UPDATE_INTERVAL); // Init depends on all the things
-        ModuleWorker.moduleWorker();
+            SettingsHelper.ensureSettingsContainsAllKeys();
+
+            this.ptt.value = SettingsHelper.settings.ptt
+                ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt)
+                : '';
+
+            SttProvider.sttProviderName = SettingsHelper.settings.currentProvider; // No dependencies
+
+            const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
+            setInterval(() => wrapper.update(), UPDATE_INTERVAL); // Init depends on all the things
+            ModuleWorker.moduleWorker();
+        });
     }
 
     private addExtensionControls() {
@@ -105,20 +111,6 @@ class App extends Vue {
         } else {
             this.ptt.value = '';
         }
-    }
-
-    private loadSettings() {
-        SettingsHelper.ensureSettingsContainsAllKeys();
-
-        this.ptt.value = SettingsHelper.settings.ptt
-            ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt)
-            : '';
-    }
-
-    async onMessageModeChange(mode: string) {
-        SettingsHelper.settings.messageMode = mode;
-
-        saveSettingsDebounced();
     }
 
     private async onMessageMappingChange(s: string) {
