@@ -46,8 +46,8 @@ var __privateIn = (member, obj) => Object(obj) !== obj ? __typeError('Cannot use
 var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
-var _ptt_dec, _sttProviderSettingsForm_dec, _a, _App_decorators, _init, _b;
-import { modules, getApiUrl, doExtrasFetch, extension_settings, getContext, ModuleWorkerWrapper } from "../../../../extensions.js";
+var _LanguageSelector_decorators, _init, _a, _b, _ptt_dec, _c, _App_decorators, _init2, _d;
+import { extension_settings, modules, getApiUrl, doExtrasFetch, getContext, ModuleWorkerWrapper } from "../../../../extensions.js";
 import { textgenerationwebui_settings, textgen_types } from "../../../../textgen-settings.js";
 import { getRequestHeaders, sendMessageAsUser, saveSettingsDebounced } from "../../../../../script.js";
 import { getBase64Async } from "../../../../utils.js";
@@ -2813,7 +2813,48 @@ const onRenderTracked = createHook("rtc");
 function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
+const COMPONENTS = "components";
+function resolveComponent(name, maybeSelfReference) {
+  return resolveAsset(COMPONENTS, name, true, maybeSelfReference) || name;
+}
 const NULL_DYNAMIC_COMPONENT = Symbol.for("v-ndc");
+function resolveAsset(type, name, warnMissing = true, maybeSelfReference = false) {
+  const instance = currentRenderingInstance || currentInstance;
+  if (instance) {
+    const Component2 = instance.type;
+    {
+      const selfName = getComponentName(
+        Component2,
+        false
+      );
+      if (selfName && (selfName === name || selfName === camelize(name) || selfName === capitalize(camelize(name)))) {
+        return Component2;
+      }
+    }
+    const res = (
+      // local registration
+      // check instance[type] first which is resolved for options API
+      resolve(instance[type] || Component2[type], name) || // global registration
+      resolve(instance.appContext[type], name)
+    );
+    if (!res && maybeSelfReference) {
+      return Component2;
+    }
+    if (!!(define_process_env_default$2.NODE_ENV !== "production") && warnMissing && !res) {
+      const extra = `
+If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement.`;
+      warn$1(`Failed to resolve ${type.slice(0, -1)}: ${name}${extra}`);
+    }
+    return res;
+  } else if (!!(define_process_env_default$2.NODE_ENV !== "production")) {
+    warn$1(
+      `resolve${capitalize(type.slice(0, -1))} can only be used in render() or setup().`
+    );
+  }
+}
+function resolve(registry, name) {
+  return registry && (registry[name] || registry[camelize(name)] || registry[capitalize(camelize(name))]);
+}
 function renderList(source, renderItem, cache, index) {
   let ret;
   const cached = cache;
@@ -7809,7 +7850,66 @@ const getModelAssigner = (vnode) => {
   const fn = vnode.props["onUpdate:modelValue"] || false;
   return isArray(fn) ? (value) => invokeArrayFns(fn, value) : fn;
 };
+function onCompositionStart(e) {
+  e.target.composing = true;
+}
+function onCompositionEnd(e) {
+  const target = e.target;
+  if (target.composing) {
+    target.composing = false;
+    target.dispatchEvent(new Event("input"));
+  }
+}
 const assignKey = Symbol("_assign");
+const vModelText = {
+  created(el, { modifiers: { lazy, trim, number } }, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    const castToNumber = number || vnode.props && vnode.props.type === "number";
+    addEventListener(el, lazy ? "change" : "input", (e) => {
+      if (e.target.composing) return;
+      let domValue = el.value;
+      if (trim) {
+        domValue = domValue.trim();
+      }
+      if (castToNumber) {
+        domValue = looseToNumber(domValue);
+      }
+      el[assignKey](domValue);
+    });
+    if (trim) {
+      addEventListener(el, "change", () => {
+        el.value = el.value.trim();
+      });
+    }
+    if (!lazy) {
+      addEventListener(el, "compositionstart", onCompositionStart);
+      addEventListener(el, "compositionend", onCompositionEnd);
+      addEventListener(el, "change", onCompositionEnd);
+    }
+  },
+  // set value on mounted so it's after min/max for type="range"
+  mounted(el, { value }) {
+    el.value = value == null ? "" : value;
+  },
+  beforeUpdate(el, { value, oldValue, modifiers: { lazy, trim, number } }, vnode) {
+    el[assignKey] = getModelAssigner(vnode);
+    if (el.composing) return;
+    const elValue = (number || el.type === "number") && !/^0\d/.test(el.value) ? looseToNumber(el.value) : el.value;
+    const newValue = value == null ? "" : value;
+    if (elValue === newValue) {
+      return;
+    }
+    if (document.activeElement === el && el.type !== "range") {
+      if (lazy && value === oldValue) {
+        return;
+      }
+      if (trim && el.value.trim() === newValue) {
+        return;
+      }
+    }
+    el.value = newValue;
+  }
+};
 const vModelCheckbox = {
   // #4096 array checkboxes need to be deep traversed
   deep: true,
@@ -8278,7 +8378,7 @@ const HookNames = [
   "render"
 ];
 function build$9(cons, optionBuilder) {
-  var _a2, _b2, _c;
+  var _a2, _b2, _c2;
   const slot = obtainSlot(cons.prototype);
   const protoArr = toComponentReverse(cons.prototype);
   const map2 = slot.obtainMap("hooks");
@@ -8302,7 +8402,7 @@ function build$9(cons, optionBuilder) {
     });
   });
   Object.assign(optionBuilder.methods, MethodFunctions);
-  const beforeCreateCallbacks = [...(_c = optionBuilder.beforeCreateCallbacks) !== null && _c !== void 0 ? _c : []];
+  const beforeCreateCallbacks = [...(_c2 = optionBuilder.beforeCreateCallbacks) !== null && _c2 !== void 0 ? _c2 : []];
   if (beforeCreateCallbacks && beforeCreateCallbacks.length > 0) {
     const oldBeforeCreateCallback = HookFunctions["beforeCreate"];
     HookFunctions["beforeCreate"] = function() {
@@ -8412,11 +8512,11 @@ function build$4(cons, optionBuilder, vueInstance) {
 }
 var __awaiter = function(thisArg, _arguments, P, generator) {
   function adopt(value) {
-    return value instanceof P ? value : new P(function(resolve) {
-      resolve(value);
+    return value instanceof P ? value : new P(function(resolve2) {
+      resolve2(value);
     });
   }
-  return new (P || (P = Promise))(function(resolve, reject) {
+  return new (P || (P = Promise))(function(resolve2, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -8432,7 +8532,7 @@ var __awaiter = function(thisArg, _arguments, P, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve2(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -8678,6 +8778,35 @@ class UiHelper {
     micButton.prop("title", "Click to speak");
   }
 }
+const _SettingsHelper = class _SettingsHelper {
+  static get settings() {
+    return extension_settings.speech_recognition;
+  }
+  static ensureSettingsContainsAllKeys() {
+    if (Object.keys(_SettingsHelper.settings).length === 0) {
+      Object.assign(_SettingsHelper.settings, _SettingsHelper.DEFAULT_SETTINGS);
+    }
+    for (const key in _SettingsHelper.DEFAULT_SETTINGS) {
+      if (typeof _SettingsHelper.settings[key] === "undefined") {
+        _SettingsHelper.settings[key] = _SettingsHelper.DEFAULT_SETTINGS[key];
+      }
+    }
+    if (!isReactive(extension_settings.speech_recognition)) {
+      extension_settings.speech_recognition = reactive(extension_settings.speech_recognition);
+    }
+  }
+};
+__publicField(_SettingsHelper, "DEFAULT_SETTINGS", {
+  currentProvider: "None",
+  messageMode: "append",
+  messageMappingText: "",
+  messageMapping: {},
+  messageMappingEnabled: false,
+  voiceActivationEnabled: false,
+  ptt: null
+  // Push-to-talk key combo
+});
+let SettingsHelper = _SettingsHelper;
 const DEBUG_PREFIX$7 = "<Speech Recognition module (Browser)> ";
 class BrowserSttProvider {
   constructor() {
@@ -8803,7 +8932,7 @@ class BrowserSttProvider {
       initialText = textarea.val();
       console.debug(DEBUG_PREFIX$7 + "recorder started");
       UiHelper.activateMicIcon(button);
-      if ($("#speech_recognition_message_mode").val() == "replace") {
+      if (SettingsHelper.settings.messageMode == "replace") {
         textarea.val("");
         initialText = "";
       }
@@ -9178,10 +9307,10 @@ const STT_PROVIDERS = {
 };
 class LoaderHelper {
   static loadScript(url) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (!document.querySelector("script[src='" + url + "']")) {
         const elem = document.createElement("script");
-        elem.addEventListener("load", (ev) => resolve(ev));
+        elem.addEventListener("load", (ev) => resolve2(ev));
         elem.addEventListener("error", (ev) => reject(ev));
         elem.src = url;
         document.head.appendChild(elem);
@@ -9207,11 +9336,11 @@ class WaveHelper {
     };
   }
   static convertPcmArraysToWavBlob(sampleRate, pcmArrays) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       var worker = new Worker(URL_TO_EXTENSION + "/dist/wave-worker.js");
       worker.onmessage = (e) => {
         var blob = new Blob([e.data.buffer], { type: "audio/wav" });
-        resolve(blob);
+        resolve2(blob);
       };
       worker.postMessage({
         pcmArrays,
@@ -9220,36 +9349,6 @@ class WaveHelper {
     });
   }
 }
-const _SettingsHelper = class _SettingsHelper {
-  static get settings() {
-    return extension_settings.speech_recognition;
-  }
-  static ensureSettingsContainsAllKeys() {
-    if (Object.keys(_SettingsHelper.settings).length === 0) {
-      Object.assign(_SettingsHelper.settings, _SettingsHelper.DEFAULT_SETTINGS);
-    }
-    for (const key in _SettingsHelper.DEFAULT_SETTINGS) {
-      if (typeof _SettingsHelper.settings[key] === "undefined") {
-        _SettingsHelper.settings[key] = _SettingsHelper.DEFAULT_SETTINGS[key];
-      }
-    }
-    if (!isReactive(extension_settings.speech_recognition)) {
-      extension_settings.speech_recognition = reactive(extension_settings.speech_recognition);
-    }
-  }
-};
-__publicField(_SettingsHelper, "DEFAULT_SETTINGS", {
-  enabled: false,
-  currentProvider: "None",
-  messageMode: "append",
-  messageMappingText: "",
-  messageMapping: {},
-  messageMappingEnabled: false,
-  voiceActivationEnabled: false,
-  ptt: null
-  // Push-to-talk key combo
-});
-let SettingsHelper = _SettingsHelper;
 class TranscriptionHelper {
   static async processTranscript(transcript) {
     try {
@@ -9378,8 +9477,8 @@ const _MediaRecorderHelper = class _MediaRecorderHelper {
   static async loadScripts() {
     await LoaderHelper.loadScript(URL_TO_EXTENSION + "/vad/onnxruntime-web/ort.js");
     await LoaderHelper.loadScript(URL_TO_EXTENSION + "/vad/ricky0123-vad-web/bundle.min.js");
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(null), 1);
+    return new Promise((resolve2) => {
+      setTimeout(() => resolve2(null), 1);
     });
   }
 };
@@ -9414,12 +9513,8 @@ const _SttProvider = class _SttProvider {
     _SttProvider.stopCurrentProvider();
     if (_SttProvider.sttProviderName == "None") {
       $("#microphone_button").hide();
-      $("#speech_recognition_message_mode_div").hide();
-      $("#speech_recognition_message_mapping_div").hide();
       return;
     }
-    $("#speech_recognition_message_mode_div").show();
-    $("#speech_recognition_message_mapping_div").show();
     _SttProvider.inner.sttProvider = new STT_PROVIDERS[_SttProvider.sttProviderName]();
     if (_SttProvider.sttProviderName == "Browser") {
       _SttProvider.sttProvider.processTranscriptFunction = TranscriptionHelper.processTranscript;
@@ -9459,12 +9554,6 @@ const _SttProvider = class _SttProvider {
     SettingsHelper.settings[_SttProvider.sttProviderName].language = language;
     _SttProvider.sttProvider.loadSettings(SettingsHelper.settings[_SttProvider.sttProviderName]);
     saveSettingsDebounced();
-  }
-  static onSttProviderSettingsInput() {
-    _SttProvider.sttProvider.onSettingsChange();
-    SettingsHelper.settings[_SttProvider.sttProviderName] = _SttProvider.sttProvider.settings;
-    saveSettingsDebounced();
-    console.info(`Saved settings ${_SttProvider.sttProviderName} ${JSON.stringify(_SttProvider.sttProvider.settings)}`);
   }
 };
 __publicField(_SttProvider, "inner", reactive({
@@ -9628,12 +9717,45 @@ const _PushToTalkHelper = class _PushToTalkHelper {
 };
 __publicField(_PushToTalkHelper, "lastPressTime", 0);
 let PushToTalkHelper = _PushToTalkHelper;
+let LanguageSelector$1 = (_LanguageSelector_decorators = [Component], _a = class extends (_b = Vue) {
+  get language() {
+    var _a2, _b2;
+    return (_b2 = (_a2 = SttProvider.sttProvider) == null ? void 0 : _a2.settings) == null ? void 0 : _b2.language;
+  }
+  set language(v) {
+    SttProvider.onSttLanguageChange(v);
+  }
+}, _init = __decoratorStart(_b), _a = __decorateElement(_init, 0, "LanguageSelector", _LanguageSelector_decorators, _a), __runInitializers(_init, 1, _a), _a);
+const _sfc_main$1 = toNative(LanguageSelector$1);
+const _export_sfc = (sfc, props) => {
+  const target = sfc.__vccOpts || sfc;
+  for (const [key, val] of props) {
+    target[key] = val;
+  }
+  return target;
+};
+const _hoisted_1$1 = { key: 0 };
+function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+  return _ctx.language || _ctx.language === "" ? (openBlock(), createElementBlock("div", _hoisted_1$1, [
+    _cache[2] || (_cache[2] = createBaseVNode("span", null, "Speech Language", -1)),
+    withDirectives(createBaseVNode("select", {
+      "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => _ctx.language = $event)
+    }, _cache[1] || (_cache[1] = [
+      createStaticVNode('<option value="">-- Automatic --</option><option value="af">Afrikaans</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="be">Belarusian</option><option value="bs">Bosnian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh">Chinese</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="et">Estonian</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="de">German</option><option value="el">Greek</option><option value="he">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="kk">Kazakh</option><option value="ko">Korean</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mr">Marathi</option><option value="mi">Maori</option><option value="ne">Nepali</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="tl">Tagalog</option><option value="ta">Tamil</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option>', 58)
+    ]), 512), [
+      [vModelSelect, _ctx.language]
+    ])
+  ])) : createCommentVNode("", true);
+}
+const LanguageSelector = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render$1]]);
 const UPDATE_INTERVAL = 100;
-let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttProviderSettingsForm_dec = [decorator], _ptt_dec = [decorator], _a) {
+let App$1 = (_App_decorators = [Component({
+  components: { LanguageSelector }
+})], _d = class extends (_c = Vue, _ptt_dec = [decorator], _c) {
   constructor() {
     super(...arguments);
-    __publicField(this, "sttProviderSettingsForm", __runInitializers(_init, 8, this)), __runInitializers(_init, 11, this);
-    __publicField(this, "ptt", __runInitializers(_init, 12, this)), __runInitializers(_init, 15, this);
+    __publicField(this, "ptt", __runInitializers(_init2, 8, this)), __runInitializers(_init2, 11, this);
+    __publicField(this, "messageMappingStatus", "");
   }
   get sttProviderNames() {
     return Object.keys(STT_PROVIDERS);
@@ -9648,24 +9770,42 @@ let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttPr
   set sttProviderName(v) {
     SttProvider.sttProviderName = v;
   }
-  get language() {
-    var _a2, _b2;
-    return (_b2 = (_a2 = SttProvider.sttProvider) == null ? void 0 : _a2.settings) == null ? void 0 : _b2.language;
-  }
-  set language(v) {
-    SttProvider.onSttLanguageChange(v);
-  }
   get isShowPttHotkeySelector() {
     return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming";
   }
   get isShowVoiceActivationCheckbox() {
     return SttProvider.sttProvider && SttProvider.sttProviderName != "Streaming";
   }
+  get isShowMessageMode() {
+    return !!SttProvider.sttProvider;
+  }
   get voiceActivationEnabled() {
     return SettingsHelper.settings.voiceActivationEnabled;
   }
   set voiceActivationEnabled(v) {
     SettingsHelper.settings.voiceActivationEnabled = v;
+    saveSettingsDebounced();
+  }
+  get messageMode() {
+    return SettingsHelper.settings.messageMode;
+  }
+  set messageMode(v) {
+    this.onMessageModeChange(v);
+  }
+  get isShowMessageMapping() {
+    return !!SttProvider.sttProvider;
+  }
+  get messageMappingText() {
+    return SettingsHelper.settings.messageMappingText;
+  }
+  set messageMappingText(v) {
+    this.onMessageMappingChange(v);
+  }
+  get isMessageMappingEnabled() {
+    return SettingsHelper.settings.messageMappingEnabled;
+  }
+  set isMessageMappingEnabled(v) {
+    SettingsHelper.settings.messageMappingEnabled = v;
     saveSettingsDebounced();
   }
   mounted() {
@@ -9678,21 +9818,17 @@ let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttPr
     this.loadSettings();
     SttProvider.sttProviderName = SettingsHelper.settings.currentProvider;
     const wrapper = new ModuleWorkerWrapper(ModuleWorker.moduleWorker);
-    setInterval(wrapper.update.bind(wrapper), UPDATE_INTERVAL);
+    setInterval(() => wrapper.update(), UPDATE_INTERVAL);
     ModuleWorker.moduleWorker();
   }
   addExtensionControls() {
-    $(this.sttProviderSettingsForm).on("input", SttProvider.onSttProviderSettingsInput);
-    $("#speech_recognition_message_mode").on("change", () => this.onMessageModeChange());
-    $("#speech_recognition_message_mapping").on("change", () => this.onMessageMappingChange());
-    $("#speech_recognition_message_mapping_enabled").on("click", () => this.onMessageMappingEnabledClick());
     document.body.addEventListener("keydown", PushToTalkHelper.processPushToTalkStart);
     document.body.addEventListener("keyup", PushToTalkHelper.processPushToTalkEnd);
-    const $button = $('<div id="microphone_button" class="fa-solid fa-microphone speech-toggle interactable" tabindex="0" title="Click to speak"></div>');
+    const button = $('<div id="microphone_button" class="fa-solid fa-microphone speech-toggle interactable" tabindex="0" title="Click to speak"></div>');
     if ($("#send_but_sheld").length == 0) {
-      $("#rightSendForm").prepend($button);
+      $("#rightSendForm").prepend(button);
     } else {
-      $("#send_but_sheld").prepend($button);
+      $("#send_but_sheld").prepend(button);
     }
   }
   onPttFocus() {
@@ -9724,29 +9860,16 @@ let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttPr
   }
   loadSettings() {
     SettingsHelper.ensureSettingsContainsAllKeys();
-    $("#speech_recognition_enabled").prop("checked", SettingsHelper.settings.enabled);
-    $("#speech_recognition_message_mode").val(SettingsHelper.settings.messageMode);
-    if (SettingsHelper.settings.messageMappingText.length > 0) {
-      $("#speech_recognition_message_mapping").val(SettingsHelper.settings.messageMappingText);
-    }
-    $("#speech_recognition_message_mapping_enabled").prop("checked", SettingsHelper.settings.messageMappingEnabled);
     this.ptt.value = SettingsHelper.settings.ptt ? KeyboardHelper.formatPushToTalkKey(SettingsHelper.settings.ptt) : "";
   }
-  async onMessageModeChange() {
-    SettingsHelper.settings.messageMode = $("#speech_recognition_message_mode").val();
-    if (SttProvider.sttProviderName != "Browser" && SettingsHelper.settings.messageMode == "auto_send") {
-      $("#speech_recognition_wait_response_div").show();
-    } else {
-      $("#speech_recognition_wait_response_div").hide();
-    }
+  async onMessageModeChange(mode) {
+    SettingsHelper.settings.messageMode = mode;
     saveSettingsDebounced();
   }
-  async onMessageMappingChange() {
-    let array = String($("#speech_recognition_message_mapping").val()).split(",");
-    array = array.map((element) => {
-      return element.trim();
-    });
-    array = array.filter((str) => str !== "");
+  async onMessageMappingChange(s) {
+    let array = s.split(",");
+    array = array.map((x) => x.trim());
+    array = array.filter((x) => x !== "");
     SettingsHelper.settings.messageMapping = {};
     for (const text of array) {
       if (text.includes("=")) {
@@ -9757,43 +9880,41 @@ let App$1 = (_App_decorators = [Component], _b = class extends (_a = Vue, _sttPr
         console.debug(DEBUG_PREFIX + "Wrong syntax for message mapping, no '=' found in:", text);
       }
     }
-    $("#speech_recognition_message_mapping_status").text("Message mapping updated to: " + JSON.stringify(SettingsHelper.settings.messageMapping));
+    this.messageMappingStatus = "Message mapping updated to: " + JSON.stringify(SettingsHelper.settings.messageMapping);
     console.debug(DEBUG_PREFIX + "Updated message mapping", SettingsHelper.settings.messageMapping);
-    SettingsHelper.settings.messageMappingText = $("#speech_recognition_message_mapping").val();
+    SettingsHelper.settings.messageMappingText = s;
     saveSettingsDebounced();
   }
-  async onMessageMappingEnabledClick() {
-    SettingsHelper.settings.messageMappingEnabled = $("#speech_recognition_message_mapping_enabled").is(":checked");
+  onSttProviderSettingsChanged() {
+    SttProvider.sttProvider.onSettingsChange();
+    SettingsHelper.settings[SttProvider.sttProviderName] = SttProvider.sttProvider.settings;
     saveSettingsDebounced();
+    console.info(`Saved settings ${SttProvider.sttProviderName} ${JSON.stringify(SttProvider.sttProvider.settings)}`);
   }
-}, _init = __decoratorStart(_a), __decorateElement(_init, 5, "sttProviderSettingsForm", _sttProviderSettingsForm_dec, _b), __decorateElement(_init, 5, "ptt", _ptt_dec, _b), _b = __decorateElement(_init, 0, "App", _App_decorators, _b), __runInitializers(_init, 1, _b), _b);
+}, _init2 = __decoratorStart(_c), __decorateElement(_init2, 5, "ptt", _ptt_dec, _d), _d = __decorateElement(_init2, 0, "App", _App_decorators, _d), __runInitializers(_init2, 1, _d), _d);
 const _sfc_main = toNative(App$1);
-const _export_sfc = (sfc, props) => {
-  const target = sfc.__vccOpts || sfc;
-  for (const [key, val] of props) {
-    target[key] = val;
-  }
-  return target;
-};
 const _hoisted_1 = { class: "inline-drawer" };
 const _hoisted_2 = { class: "inline-drawer-content" };
 const _hoisted_3 = ["value"];
-const _hoisted_4 = { key: 0 };
-const _hoisted_5 = {
-  key: 1,
+const _hoisted_4 = {
+  key: 0,
   title: "Automatically start and stop recording when you start and stop speaking."
 };
-const _hoisted_6 = { class: "checkbox_label" };
-const _hoisted_7 = ["innerHTML"];
+const _hoisted_5 = { class: "checkbox_label" };
+const _hoisted_6 = { key: 1 };
+const _hoisted_7 = { key: 2 };
+const _hoisted_8 = { class: "checkbox_label" };
+const _hoisted_9 = ["innerHTML"];
 function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_language_selector = resolveComponent("language-selector");
   return openBlock(), createElementBlock("div", _hoisted_1, [
-    _cache[12] || (_cache[12] = createBaseVNode("div", { class: "inline-drawer-toggle inline-drawer-header" }, [
+    _cache[17] || (_cache[17] = createBaseVNode("div", { class: "inline-drawer-toggle inline-drawer-header" }, [
       createBaseVNode("b", null, "Speech Recognition Ex"),
       createBaseVNode("div", { class: "inline-drawer-icon fa-solid fa-circle-chevron-down down" })
     ], -1)),
     createBaseVNode("div", _hoisted_2, [
       createBaseVNode("div", null, [
-        _cache[5] || (_cache[5] = createBaseVNode("span", null, "Select Speech-to-text Provider", -1)),
+        _cache[8] || (_cache[8] = createBaseVNode("span", null, "Select Speech-to-text Provider", -1)),
         withDirectives(createBaseVNode("select", {
           "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => _ctx.sttProviderName = $event)
         }, [
@@ -9804,19 +9925,10 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
           [vModelSelect, _ctx.sttProviderName]
         ])
       ]),
-      _ctx.language || _ctx.language === "" ? (openBlock(), createElementBlock("div", _hoisted_4, [
-        _cache[7] || (_cache[7] = createBaseVNode("span", null, "Speech Language", -1)),
-        withDirectives(createBaseVNode("select", {
-          "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => _ctx.language = $event)
-        }, _cache[6] || (_cache[6] = [
-          createStaticVNode('<option value="">-- Automatic --</option><option value="af">Afrikaans</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="be">Belarusian</option><option value="bs">Bosnian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh">Chinese</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="et">Estonian</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="de">German</option><option value="el">Greek</option><option value="he">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="kk">Kazakh</option><option value="ko">Korean</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mr">Marathi</option><option value="mi">Maori</option><option value="ne">Nepali</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="tl">Tagalog</option><option value="ta">Tamil</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option>', 58)
-        ]), 512), [
-          [vModelSelect, _ctx.language]
-        ])
-      ])) : createCommentVNode("", true),
+      createVNode(_component_language_selector),
       withDirectives(createBaseVNode("div", null, [
-        _cache[8] || (_cache[8] = createBaseVNode("span", null, "Recording Hotkey", -1)),
-        _cache[9] || (_cache[9] = createBaseVNode("i", {
+        _cache[9] || (_cache[9] = createBaseVNode("span", null, "Recording Hotkey", -1)),
+        _cache[10] || (_cache[10] = createBaseVNode("i", {
           title: "Press the designated keystroke to start the recording. Press again to stop. Only works if a browser tab is in focus.",
           class: "fa-solid fa-info-circle opacity50p"
         }, null, -1)),
@@ -9826,29 +9938,63 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
           class: "text_pole",
           placeholder: "Click to set push-to-talk key",
           ref: "ptt",
-          onFocus: _cache[2] || (_cache[2] = (...args) => _ctx.onPttFocus && _ctx.onPttFocus(...args)),
-          onBlur: _cache[3] || (_cache[3] = (...args) => _ctx.onPttBlur && _ctx.onPttBlur(...args))
+          onFocus: _cache[1] || (_cache[1] = (...args) => _ctx.onPttFocus && _ctx.onPttFocus(...args)),
+          onBlur: _cache[2] || (_cache[2] = (...args) => _ctx.onPttBlur && _ctx.onPttBlur(...args))
         }, null, 544)
       ], 512), [
         [vShow, _ctx.isShowPttHotkeySelector]
       ]),
-      _ctx.isShowVoiceActivationCheckbox ? (openBlock(), createElementBlock("div", _hoisted_5, [
-        createBaseVNode("label", _hoisted_6, [
+      _ctx.isShowVoiceActivationCheckbox ? (openBlock(), createElementBlock("div", _hoisted_4, [
+        createBaseVNode("label", _hoisted_5, [
           withDirectives(createBaseVNode("input", {
             type: "checkbox",
-            "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => _ctx.voiceActivationEnabled = $event)
+            "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => _ctx.voiceActivationEnabled = $event)
           }, null, 512), [
             [vModelCheckbox, _ctx.voiceActivationEnabled]
           ]),
-          _cache[10] || (_cache[10] = createBaseVNode("small", null, "Enable activation by voice", -1))
+          _cache[11] || (_cache[11] = createBaseVNode("small", null, "Enable activation by voice", -1))
         ])
       ])) : createCommentVNode("", true),
-      _cache[11] || (_cache[11] = createStaticVNode('<div id="speech_recognition_message_mode_div"><span>Message Mode</span><select id="speech_recognition_message_mode"><option value="append">Append</option><option value="replace">Replace</option><option value="auto_send">Auto send</option></select></div><div id="speech_recognition_message_mapping_div"><span>Message Mapping</span><textarea id="speech_recognition_message_mapping" class="text_pole textarea_compact" type="text" rows="4" placeholder="Enter comma separated phrases mapping, example:\\ncommand delete = /del 2,\\nslash delete = /del 2,\\nsystem roll = /roll 2d6,\\nhey continue = /continue"></textarea><span id="speech_recognition_message_mapping_status"></span><label class="checkbox_label" for="speech_recognition_message_mapping_enabled"><input type="checkbox" id="speech_recognition_message_mapping_enabled" name="speech_recognition_message_mapping_enabled"><small>Enable messages mapping</small></label></div>', 2)),
+      _ctx.isShowMessageMode ? (openBlock(), createElementBlock("div", _hoisted_6, [
+        _cache[13] || (_cache[13] = createBaseVNode("span", null, "Message Mode", -1)),
+        withDirectives(createBaseVNode("select", {
+          "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => _ctx.messageMode = $event)
+        }, _cache[12] || (_cache[12] = [
+          createBaseVNode("option", { value: "append" }, "Append", -1),
+          createBaseVNode("option", { value: "replace" }, "Replace", -1),
+          createBaseVNode("option", { value: "auto_send" }, "Auto send", -1)
+        ]), 512), [
+          [vModelSelect, _ctx.messageMode]
+        ])
+      ])) : createCommentVNode("", true),
+      _ctx.isShowMessageMapping ? (openBlock(), createElementBlock("div", _hoisted_7, [
+        _cache[16] || (_cache[16] = createBaseVNode("span", null, "Message Mapping", -1)),
+        withDirectives(createBaseVNode("textarea", {
+          "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => _ctx.messageMappingText = $event),
+          class: "text_pole textarea_compact",
+          type: "text",
+          rows: "4",
+          placeholder: "Enter comma separated phrases mapping, example:\\ncommand delete = /del 2,\\nslash delete = /del 2,\\nsystem roll = /roll 2d6,\\nhey continue = /continue"
+        }, null, 512), [
+          [vModelText, _ctx.messageMappingText]
+        ]),
+        createBaseVNode("span", null, toDisplayString(_ctx.messageMappingStatus), 1),
+        createBaseVNode("label", _hoisted_8, [
+          withDirectives(createBaseVNode("input", {
+            type: "checkbox",
+            "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => _ctx.isMessageMappingEnabled = $event)
+          }, null, 512), [
+            [vModelCheckbox, _ctx.isMessageMappingEnabled]
+          ]),
+          _cache[14] || (_cache[14] = createTextVNode()),
+          _cache[15] || (_cache[15] = createBaseVNode("small", null, "Enable messages mapping", -1))
+        ])
+      ])) : createCommentVNode("", true),
       createBaseVNode("form", {
-        ref: "sttProviderSettingsForm",
         class: "inline-drawer-content",
+        onInput: _cache[7] || (_cache[7] = (...args) => _ctx.onSttProviderSettingsChanged && _ctx.onSttProviderSettingsChanged(...args)),
         innerHTML: _ctx.sttProviderSettingsFormInnerHtml
-      }, null, 8, _hoisted_7)
+      }, null, 40, _hoisted_9)
     ])
   ]);
 }
